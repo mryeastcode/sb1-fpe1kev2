@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -13,10 +13,13 @@ import {
   Droplets, 
   Flame, 
   Target, 
-  Calendar,
   Plus,
   Clock,
-  TrendingUp 
+  TrendingUp,
+  Moon,
+  Sun,
+  Walk,
+  Activity,
 } from 'lucide-react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { useNutrition } from '@/hooks/useNutrition';
@@ -25,369 +28,605 @@ import { useExercise } from '@/hooks/useExercise';
 
 const { width } = Dimensions.get('window');
 
+// Modern color palette
+const colors = {
+  primary: '#10B981',
+  secondary: '#3B82F6',
+  accent: '#F59E0B',
+  danger: '#EF4444',
+  purple: '#8B5CF6',
+  cyan: '#06B6D4',
+  dark: '#1F2937',
+  gray: '#6B7280',
+  light: '#F3F4F6',
+  white: '#FFFFFF',
+  background: '#F8FAFC',
+};
+
 export default function HomeScreen() {
   const { user } = useAuth();
   const { todaysTotals: nutritionTotals } = useNutrition();
   const { todaysIntake: waterIntake, glasses, progress: waterProgress, quickAdd } = useWater();
   const { weeklyStats: exerciseStats } = useExercise();
 
-  // Default goals (these would come from user profile)
   const calorieGoal = 2000;
-  const stepsGoal = 10000;
+  const proteinGoal = 120;
+  const carbsGoal = 250;
+  const fatGoal = 65;
+  
+  const calorieProgress = Math.min((nutritionTotals.calories / calorieGoal) * 100, 100);
+  const proteinProgress = Math.min((nutritionTotals.protein / proteinGoal) * 100, 100);
+  const carbsProgress = Math.min((nutritionTotals.carbs / carbsGoal) * 100, 100);
+  const fatProgress = Math.min((nutritionTotals.fat / fatGoal) * 100, 100);
 
-  const calorieProgress = Math.round((nutritionTotals.calories / calorieGoal) * 100);
-  const stepsProgress = 85; // Mock for now - would come from device
-
-  const quickActions = [
-    { id: 'food', icon: Plus, label: 'Log Food', color: '#10B981', action: 'nutrition' },
-    { id: 'water', icon: Droplets, label: 'Add Water', color: '#06B6D4', action: 'addWater' },
-    { id: 'exercise', icon: Target, label: 'Workout', color: '#3B82F6', action: 'exercise' },
-    { id: 'sleep', icon: Clock, label: 'Sleep', color: '#8B5CF6', action: 'sleep' },
-  ];
-
-  const handleQuickAction = async (action: string) => {
-    if (action === 'addWater') {
-      await quickAdd(1);
-    }
-    // Other actions would navigate to respective screens
-  };
-
-  // Get greeting based on time
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning!';
-    if (hour < 18) return 'Good Afternoon!';
-    return 'Good Evening!';
+    if (hour < 12) return 'Good Morning';
+    if (hour < 18) return 'Good Afternoon';
+    return 'Good Evening';
+  };
+
+  const getDayName = () => {
+    return new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
+      {/* Modern Header with Gradient */}
       <LinearGradient
-        colors={['#10B981', '#059669']}
+        colors={[colors.primary, '#059669']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.greeting}>{getGreeting()}</Text>
-          <Text style={styles.username}>
-            {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Welcome'}
-          </Text>
-        </View>
+        <SafeAreaView edges={['top']}>
+          <View style={styles.headerContent}>
+            <View>
+              <Text style={styles.greeting}>{getGreeting()}</Text>
+              <Text style={styles.dayName}>{getDayName()}</Text>
+            </View>
+            <TouchableOpacity style={styles.profileButton}>
+              <Text style={styles.profileInitial}>
+                {(user?.user_metadata?.full_name || user?.email || 'U')[0].toUpperCase()}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </SafeAreaView>
       </LinearGradient>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Today's Summary */}
-        <View style={styles.summaryCard}>
-          <Text style={styles.cardTitle}>Today's Summary</Text>
-          <View style={styles.summaryRow}>
-            <View style={styles.summaryItem}>
-              <Flame color="#F59E0B" size={24} />
-              <Text style={styles.summaryNumber}>{nutritionTotals.calories}</Text>
-              <Text style={styles.summaryLabel}>Calories</Text>
-              <Text style={styles.summarySubtext}>of {calorieGoal}</Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Target color="#3B82F6" size={24} />
-              <Text style={styles.summaryNumber}>{Math.round(nutritionTotals.protein)}g</Text>
-              <Text style={styles.summaryLabel}>Protein</Text>
-              <Text style={styles.summarySubtext}>goal: 120g</Text>
-            </View>
-            <View style={styles.summaryItem}>
-              <Droplets color="#06B6D4" size={24} />
-              <Text style={styles.summaryNumber}>{glasses}</Text>
-              <Text style={styles.summaryLabel}>Glasses</Text>
-              <Text style={styles.summarySubtext}>{Math.round(waterProgress)}% of 8</Text>
+      <ScrollView 
+        style={styles.content} 
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.scrollContent}>
+        
+        {/* Main Stats Card - Glassmorphism */}
+        <View style={styles.statsCard}>
+          <View style={styles.statsHeader}>
+            <Text style={styles.cardTitle}>Today's Progress</Text>
+            <View style={styles.caloriesRemaining}>
+              <Text style={styles.caloriesNumber}>
+                {calorieGoal - nutritionTotals.calories}
+              </Text>
+              <Text style={styles.caloriesLabel}>cal left</Text>
             </View>
           </View>
-        </View>
-
-        {/* Progress Rings */}
-        <View style={styles.progressCard}>
-          <Text style={styles.cardTitle}>Daily Goals</Text>
-          <View style={styles.progressRow}>
-            <View style={styles.progressItem}>
-              <View style={[styles.progressRing, { 
-                borderColor: calorieProgress >= 100 ? '#10B981' : '#F59E0B' 
-              }]}>
-                <Text style={styles.progressPercent}>{calorieProgress}%</Text>
-              </View>
-              <Text style={styles.progressLabel}>Calories</Text>
-            </View>
-            <View style={styles.progressItem}>
-              <View style={[styles.progressRing, { borderColor: '#3B82F6' }]}>
-                <Text style={styles.progressPercent}>{stepsProgress}%</Text>
-              </View>
-              <Text style={styles.progressLabel}>Steps</Text>
-            </View>
-            <View style={styles.progressItem}>
-              <View style={[styles.progressRing, { borderColor: '#06B6D4' }]}>
-                <Text style={styles.progressPercent}>{Math.round(waterProgress)}%</Text>
-              </View>
-              <Text style={styles.progressLabel}>Water</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Quick Actions */}
-        <View style={styles.actionsCard}>
-          <Text style={styles.cardTitle}>Quick Actions</Text>
-          <View style={styles.actionsGrid}>
-            {quickActions.map((action) => (
-              <TouchableOpacity 
-                key={action.id} 
-                style={styles.actionButton}
-                onPress={() => handleQuickAction(action.action)}
-              >
-                <View style={[styles.actionIcon, { backgroundColor: action.color + '20' }]}>
-                  <action.icon color={action.color} size={24} />
+          
+          {/* Circular Progress */}
+          <View style={styles.mainProgressContainer}>
+            <View style={styles.progressCircle}>
+              <LinearGradient
+                colors={[colors.accent, '#D97706']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.progressRing}>
+                <View style={styles.progressInner}>
+                  <Text style={styles.progressPercent}>{Math.round(calorieProgress)}%</Text>
+                  <Text style={styles.progressLabel}>of {calorieGoal} cal</Text>
                 </View>
-                <Text style={styles.actionLabel}>{action.label}</Text>
+              </LinearGradient>
+            </View>
+          </View>
+
+          {/* Macro Pills */}
+          <View style={styles.macrosRow}>
+            <View style={[styles.macroPill, { backgroundColor: colors.primary + '15' }]}>
+              <View style={[styles.macroDot, { backgroundColor: colors.primary }]} />
+              <Text style={styles.macroValue}>{Math.round(nutritionTotals.protein)}g</Text>
+              <Text style={styles.macroLabel}>Protein</Text>
+            </View>
+            <View style={[styles.macroPill, { backgroundColor: colors.accent + '15' }]}>
+              <View style={[styles.macroDot, { backgroundColor: colors.accent }]} />
+              <Text style={styles.macroValue}>{Math.round(nutritionTotals.carbs)}g</Text>
+              <Text style={styles.macroLabel}>Carbs</Text>
+            </View>
+            <View style={[styles.macroPill, { backgroundColor: colors.purple + '15' }]}>
+              <View style={[styles.macroDot, { backgroundColor: colors.purple }]} />
+              <Text style={styles.macroValue}>{Math.round(nutritionTotals.fat)}g</Text>
+              <Text style={styles.macroLabel}>Fat</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Quick Actions - Modern Cards */}
+        <Text style={styles.sectionTitle}>Quick Actions</Text>
+        <View style={styles.quickActionsRow}>
+          <TouchableOpacity 
+            style={styles.quickActionCard}
+            onPress={() => quickAdd(1)}>
+            <View style={[styles.quickIcon, { backgroundColor: colors.cyan + '20' }]}>
+              <Droplets color={colors.cyan} size={24} />
+            </View>
+            <Text style={styles.quickActionLabel}>Water</Text>
+            <Text style={styles.quickActionSubtext}>+250ml</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.quickActionCard}>
+            <View style={[styles.quickIcon, { backgroundColor: colors.accent + '20' }]}>
+              <Flame color={colors.accent} size={24} />
+            </View>
+            <Text style={styles.quickActionLabel}>Food</Text>
+            <Text style={styles.quickActionSubtext}>Log meal</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.quickActionCard}>
+            <View style={[styles.quickIcon, { backgroundColor: colors.secondary + '20' }]}>
+              <Target color={colors.secondary} size={24} />
+            </View>
+            <Text style={styles.quickActionLabel}>Workout</Text>
+            <Text style={styles.quickActionSubtext}>Start</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity style={styles.quickActionCard}>
+            <View style={[styles.quickIcon, { backgroundColor: colors.purple + '20' }]}>
+              <Moon color={colors.purple} size={24} />
+            </View>
+            <Text style={styles.quickActionLabel}>Sleep</Text>
+            <Text style={styles.quickActionSubtext}>Log</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Water Progress Card */}
+        <View style={styles.waterCard}>
+          <View style={styles.waterHeader}>
+            <View style={styles.waterTitleRow}>
+              <Droplets color={colors.cyan} size={20} />
+              <Text style={styles.waterTitle}>Hydration</Text>
+            </View>
+            <Text style={styles.waterSubtitle}>{waterIntake}ml / 2000ml</Text>
+          </View>
+          
+          <View style={styles.waterProgressBar}>
+            <LinearGradient
+              colors={[colors.cyan, '#0891B2']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 0 }}
+              style={[styles.waterFill, { width: `${waterProgress}%` }]}
+            />
+          </View>
+          
+          <View style={styles.waterGlasses}>
+            {[1, 2, 3, 4, 5, 6, 7, 8].map((glass) => (
+              <TouchableOpacity
+                key={glass}
+                style={[
+                  styles.glassIcon,
+                  glass <= glasses && styles.glassIconFilled
+                ]}
+                onPress={() => quickAdd(glass - glasses)}>
+                <Droplets 
+                  color={glass <= glasses ? colors.white : colors.gray} 
+                  size={14} 
+                />
               </TouchableOpacity>
             ))}
           </View>
         </View>
 
-        {/* Weekly Exercise Summary */}
-        <View style={styles.activitiesCard}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>This Week</Text>
+        {/* Weekly Activity Card */}
+        <View style={styles.activityCard}>
+          <View style={styles.activityHeader}>
+            <Text style={styles.cardTitle}>Weekly Activity</Text>
             <TouchableOpacity>
               <Text style={styles.viewAllText}>View All</Text>
             </TouchableOpacity>
           </View>
           
-          <View style={styles.activityItem}>
-            <View style={styles.activityIcon}>
-              <Clock color="#3B82F6" size={20} />
+          <View style={styles.activityStats}>
+            <View style={styles.activityStat}>
+              <Clock color={colors.secondary} size={20} />
+              <Text style={styles.activityValue}>{exerciseStats.totalMinutes}</Text>
+              <Text style={styles.activityLabel}>min</Text>
             </View>
-            <View style={styles.activityContent}>
-              <Text style={styles.activityTitle}>Exercise Time</Text>
-              <Text style={styles.activityTime}>This week</Text>
+            <View style={styles.activityDivider} />
+            <View style={styles.activityStat}>
+              <Flame color={colors.danger} size={20} />
+              <Text style={styles.activityValue}>{exerciseStats.totalCalories}</Text>
+              <Text style={styles.activityLabel}>cal</Text>
             </View>
-            <Text style={styles.activityValue}>{exerciseStats.totalMinutes} min</Text>
+            <View style={styles.activityDivider} />
+            <View style={styles.activityStat}>
+              <Target color={colors.primary} size={20} />
+              <Text style={styles.activityValue}>{exerciseStats.workoutCount}</Text>
+              <Text style={styles.activityLabel}>workouts</Text>
+            </View>
           </View>
+        </View>
 
-          <View style={styles.activityItem}>
-            <View style={styles.activityIcon}>
-              <Flame color="#EF4444" size={20} />
+        {/* Progress Overview */}
+        <View style={styles.progressOverviewCard}>
+          <Text style={styles.cardTitle}>Macro Breakdown</Text>
+          <View style={styles.progressBars}>
+            <View style={styles.progressBarItem}>
+              <View style={styles.progressBarHeader}>
+                <Text style={styles.progressBarLabel}>Protein</Text>
+                <Text style={styles.progressBarValue}>{Math.round(nutritionTotals.protein)}/{proteinGoal}g</Text>
+              </View>
+              <View style={styles.progressBarTrack}>
+                <LinearGradient
+                  colors={[colors.primary, '#34D399']}
+                  style={[styles.progressBarFill, { width: `${proteinProgress}%` }]}
+                />
+              </View>
             </View>
-            <View style={styles.activityContent}>
-              <Text style={styles.activityTitle}>Calories Burned</Text>
-              <Text style={styles.activityTime}>This week</Text>
+            
+            <View style={styles.progressBarItem}>
+              <View style={styles.progressBarHeader}>
+                <Text style={styles.progressBarLabel}>Carbs</Text>
+                <Text style={styles.progressBarValue}>{Math.round(nutritionTotals.carbs)}/{carbsGoal}g</Text>
+              </View>
+              <View style={styles.progressBarTrack}>
+                <LinearGradient
+                  colors={[colors.accent, '#FBBF24']}
+                  style={[styles.progressBarFill, { width: `${carbsProgress}%` }]}
+                />
+              </View>
             </View>
-            <Text style={styles.activityValue}>{exerciseStats.totalCalories} cal</Text>
-          </View>
-
-          <View style={styles.activityItem}>
-            <View style={styles.activityIcon}>
-              <Target color="#10B981" size={20} />
+            
+            <View style={styles.progressBarItem}>
+              <View style={styles.progressBarHeader}>
+                <Text style={styles.progressBarLabel}>Fat</Text>
+                <Text style={styles.progressBarValue}>{Math.round(nutritionTotals.fat)}/{fatGoal}g</Text>
+              </View>
+              <View style={styles.progressBarTrack}>
+                <LinearGradient
+                  colors={[colors.purple, '#A78BFA']}
+                  style={[styles.progressBarFill, { width: `${fatProgress}%` }]}
+                />
+              </View>
             </View>
-            <View style={styles.activityContent}>
-              <Text style={styles.activityTitle}>Workouts</Text>
-              <Text style={styles.activityTime}>This week</Text>
-            </View>
-            <Text style={styles.activityValue}>{exerciseStats.workoutCount}</Text>
           </View>
         </View>
       </ScrollView>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
   headerContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
     paddingTop: 10,
   },
   greeting: {
-    fontSize: 16,
-    color: '#ffffff',
-    opacity: 0.9,
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.white,
   },
-  username: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#ffffff',
+  dayName: {
+    fontSize: 14,
+    color: colors.white,
+    opacity: 0.8,
     marginTop: 4,
+  },
+  profileButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileInitial: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.white,
   },
   content: {
     flex: 1,
-    padding: 20,
+    marginTop: -16,
   },
-  summaryCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+  scrollContent: {
     padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    paddingTop: 24,
+  },
+  statsCard: {
+    backgroundColor: colors.white,
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  statsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1f2937',
-    marginBottom: 16,
+    color: colors.dark,
   },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+  caloriesRemaining: {
+    alignItems: 'flex-end',
   },
-  summaryItem: {
-    alignItems: 'center',
-  },
-  summaryNumber: {
+  caloriesNumber: {
     fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginTop: 8,
+    fontWeight: '700',
+    color: colors.primary,
   },
-  summaryLabel: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginTop: 4,
-  },
-  summarySubtext: {
+  caloriesLabel: {
     fontSize: 12,
-    color: '#9ca3af',
+    color: colors.gray,
   },
-  progressCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+  mainProgressContainer: {
+    alignItems: 'center',
+    marginVertical: 16,
   },
-  progressRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  progressItem: {
+  progressCircle: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: colors.light,
+    justifyContent: 'center',
     alignItems: 'center',
   },
   progressRing: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    borderWidth: 4,
-    borderColor: '#10B981',
+    width: 130,
+    height: 130,
+    borderRadius: 65,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f0fdf4',
+  },
+  progressInner: {
+    alignItems: 'center',
   },
   progressPercent: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#1f2937',
+    fontSize: 32,
+    fontWeight: '700',
+    color: colors.white,
   },
   progressLabel: {
     fontSize: 12,
-    color: '#6b7280',
-    marginTop: 8,
+    color: colors.white,
+    opacity: 0.9,
+    marginTop: 2,
   },
-  actionsCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-  },
-  actionsGrid: {
+  macrosRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
+    justifyContent: 'space-around',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.light,
+  },
+  macroPill: {
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  macroDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    marginBottom: 4,
+  },
+  macroValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.dark,
+  },
+  macroLabel: {
+    fontSize: 11,
+    color: colors.gray,
+    marginTop: 2,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.dark,
+    marginTop: 24,
+    marginBottom: 12,
+  },
+  quickActionsRow: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
   },
-  actionButton: {
+  quickActionCard: {
+    width: (width - 56) / 4,
+    backgroundColor: colors.white,
+    borderRadius: 16,
+    padding: 12,
     alignItems: 'center',
-    width: (width - 80) / 4,
-    marginBottom: 16,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  actionIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+  quickIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 8,
   },
-  actionLabel: {
+  quickActionLabel: {
     fontSize: 12,
-    color: '#6b7280',
-    textAlign: 'center',
+    fontWeight: '600',
+    color: colors.dark,
   },
-  activitiesCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+  quickActionSubtext: {
+    fontSize: 10,
+    color: colors.gray,
+    marginTop: 2,
+  },
+  waterCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
     padding: 20,
-    marginBottom: 20,
-    shadowColor: '#000',
+    marginTop: 16,
+    shadowColor: colors.dark,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.06,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 2,
   },
-  cardHeader: {
+  waterHeader: {
+    marginBottom: 16,
+  },
+  waterTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  waterTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.dark,
+    marginLeft: 8,
+  },
+  waterSubtitle: {
+    fontSize: 13,
+    color: colors.gray,
+    marginLeft: 28,
+  },
+  waterProgressBar: {
+    height: 8,
+    backgroundColor: colors.light,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 16,
+  },
+  waterFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  waterGlasses: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  glassIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: colors.light,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  glassIconFilled: {
+    backgroundColor: colors.cyan,
+  },
+  activityCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 20,
+    marginTop: 16,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  activityHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
   },
   viewAllText: {
-    fontSize: 14,
-    color: '#10B981',
+    fontSize: 13,
+    color: colors.primary,
     fontWeight: '500',
   },
-  activityItem: {
+  activityStats: {
     flexDirection: 'row',
+    justifyContent: 'space-around',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
   },
-  activityIcon: {
-    width: 40,
+  activityStat: {
+    alignItems: 'center',
+  },
+  activityDivider: {
+    width: 1,
     height: 40,
-    borderRadius: 20,
-    backgroundColor: '#f8fafc',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  activityContent: {
-    flex: 1,
-  },
-  activityTitle: {
-    fontSize: 16,
-    color: '#1f2937',
-    fontWeight: '500',
-  },
-  activityTime: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginTop: 2,
+    backgroundColor: colors.light,
   },
   activityValue: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.dark,
+    marginTop: 8,
+  },
+  activityLabel: {
+    fontSize: 12,
+    color: colors.gray,
+  },
+  progressOverviewCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 20,
+    marginTop: 16,
+    marginBottom: 20,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  progressBars: {
+    marginTop: 8,
+  },
+  progressBarItem: {
+    marginBottom: 16,
+  },
+  progressBarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  progressBarLabel: {
     fontSize: 14,
-    color: '#10B981',
-    fontWeight: '600',
+    fontWeight: '500',
+    color: colors.dark,
+  },
+  progressBarValue: {
+    fontSize: 13,
+    color: colors.gray,
+  },
+  progressBarTrack: {
+    height: 8,
+    backgroundColor: colors.light,
+    borderRadius: 4,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
   },
 });
