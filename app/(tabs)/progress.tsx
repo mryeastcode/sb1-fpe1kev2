@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,6 +6,9 @@ import {
   ScrollView,
   TouchableOpacity,
   Dimensions,
+  Modal,
+  TextInput,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,99 +20,104 @@ import {
   Target,
   Zap,
   Scale,
-  Activity
+  Activity,
+  Plus,
+  X,
+  ChevronRight,
 } from 'lucide-react-native';
+import { useProfile, WeightLog } from '@/hooks/useProfile';
+import { useNutrition } from '@/hooks/useNutrition';
+import { useExercise } from '@/hooks/useExercise';
 
 const { width } = Dimensions.get('window');
 
+const colors = {
+  primary: '#10B981',
+  secondary: '#3B82F6',
+  accent: '#F59E0B',
+  purple: '#8B5CF6',
+  danger: '#EF4444',
+  cyan: '#06B6D4',
+  dark: '#1F2937',
+  gray: '#6B7280',
+  light: '#F3F4F6',
+  white: '#FFFFFF',
+  background: '#F8FAFC',
+};
+
 export default function ProgressScreen() {
+  const { weightLogs, logWeight, weeklyStats: nutritionStats } = useProfile();
+  const { todaysTotals, nutritionLogs } = useNutrition();
+  const { weeklyStats: exerciseStats } = useExercise();
+  
   const [selectedPeriod, setSelectedPeriod] = useState('week');
-  
-  const periods = ['week', 'month', 'year'];
-  
+  const [showWeightModal, setShowWeightModal] = useState(false);
+  const [newWeight, setNewWeight] = useState('');
+  const [bodyFat, setBodyFat] = useState('');
+  const periods = ['Week', 'Month', 'Year'];
+
+  // Mock achievements - would come from database
   const achievements = [
-    {
-      icon: Award,
-      title: '7-Day Streak',
-      description: 'Logged meals for 7 days straight',
-      color: '#F59E0B',
-      unlocked: true,
-    },
-    {
-      icon: Target,
-      title: 'Calorie Goal',
-      description: 'Hit your calorie target 5 times this week',
-      color: '#10B981',
-      unlocked: true,
-    },
-    {
-      icon: Zap,
-      title: 'Workout Warrior',
-      description: 'Complete 10 workouts this month',
-      color: '#3B82F6',
-      unlocked: false,
-    },
-    {
-      icon: Scale,
-      title: 'Weight Loss',
-      description: 'Lost 5 lbs this month',
-      color: '#8B5CF6',
-      unlocked: true,
-    },
+    { icon: Award, title: '7-Day Streak', desc: 'Logged meals 7 days', color: colors.accent, unlocked: true },
+    { icon: Target, title: 'Calorie Goal', desc: 'Hit target 5x this week', color: colors.primary, unlocked: true },
+    { icon: Zap, title: 'Workout Warrior', desc: 'Complete 10 workouts', color: colors.secondary, unlocked: false },
+    { icon: Scale, title: 'Weight Loss', desc: 'Lost 5 lbs this month', color: colors.purple, unlocked: true },
   ];
 
-  const progressStats = [
-    {
-      title: 'Weight',
-      current: '156.2 lbs',
-      change: '-2.3 lbs',
-      trend: 'down',
-      color: '#10B981',
-    },
-    {
-      title: 'Body Fat',
-      current: '18.5%',
-      change: '-1.2%',
-      trend: 'down',
-      color: '#3B82F6',
-    },
-    {
-      title: 'Muscle Mass',
-      current: '42.8%',
-      change: '+0.5%',
-      trend: 'up',
-      color: '#F59E0B',
-    },
-    {
-      title: 'BMI',
-      current: '22.1',
-      change: '-0.4',
-      trend: 'down',
-      color: '#8B5CF6',
-    },
-  ];
-
+  // Weekly calorie data
   const weeklyData = [
-    { day: 'Mon', calories: 1850, target: 2000 },
-    { day: 'Tue', calories: 2100, target: 2000 },
-    { day: 'Wed', calories: 1950, target: 2000 },
-    { day: 'Thu', calories: 1800, target: 2000 },
-    { day: 'Fri', calories: 2050, target: 2000 },
-    { day: 'Sat', calories: 2200, target: 2000 },
-    { day: 'Sun', calories: 1900, target: 2000 },
+    { day: 'Mon', calories: 1850 },
+    { day: 'Tue', calories: 2100 },
+    { day: 'Wed', calories: nutritionStats.totalMinutes > 0 ? todaysTotals.calories : 1950 },
+    { day: 'Thu', calories: 1800 },
+    { day: 'Fri', calories: 2050 },
+    { day: 'Sat', calories: 2200 },
+    { day: 'Sun', calories: 1900 },
   ];
+
+  const calorieGoal = 2000;
+  const maxCalories = Math.max(...weeklyData.map(d => d.calories), calorieGoal);
+
+  const handleLogWeight = async () => {
+    if (!newWeight) {
+      Alert.alert('⚠️ Error', 'Please enter your weight');
+      return;
+    }
+
+    const result = await logWeight(
+      parseFloat(newWeight),
+      bodyFat ? parseFloat(bodyFat) : undefined
+    );
+
+    if (result.success) {
+      setShowWeightModal(false);
+      setNewWeight('');
+      setBodyFat('');
+      Alert.alert('✅ Done!', 'Weight logged successfully');
+    }
+  };
+
+  // Get latest weight
+  const latestWeight = weightLogs[0]?.weight_kg;
+  const weightInLbs = latestWeight ? Math.round(latestWeight * 2.205) : '--';
+  const previousWeight = weightLogs[1]?.weight_kg;
+  const weightChange = latestWeight && previousWeight 
+    ? (latestWeight - previousWeight).toFixed(1) 
+    : '--';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <LinearGradient
-        colors={['#8B5CF6', '#7C3AED']}
+        colors={[colors.purple, '#7C3AED']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Progress Tracker</Text>
-          <Text style={styles.headerSubtitle}>See how far you've come</Text>
-        </View>
+        <SafeAreaView edges={['top']}>
+          <View style={styles.headerContent}>
+            <Text style={styles.headerTitle}>Progress</Text>
+            <Text style={styles.headerSubtitle}>Track your journey</Text>
+          </View>
+        </SafeAreaView>
       </LinearGradient>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -133,55 +141,93 @@ export default function ProgressScreen() {
           ))}
         </View>
 
-        {/* Progress Overview */}
-        <View style={styles.overviewCard}>
-          <Text style={styles.cardTitle}>This Week Overview</Text>
-          <View style={styles.overviewGrid}>
-            {progressStats.map((stat, index) => (
-              <View key={index} style={styles.statCard}>
-                <Text style={styles.statTitle}>{stat.title}</Text>
-                <Text style={styles.statCurrent}>{stat.current}</Text>
-                <View style={styles.statChange}>
-                  {stat.trend === 'up' ? (
-                    <TrendingUp color={stat.color} size={16} />
-                  ) : (
-                    <TrendingDown color={stat.color} size={16} />
-                  )}
-                  <Text style={[styles.statChangeText, { color: stat.color }]}>
-                    {stat.change}
-                  </Text>
-                </View>
+        {/* Weight Card */}
+        <View style={styles.weightCard}>
+          <View style={styles.weightHeader}>
+            <View>
+              <Text style={styles.weightLabel}>Current Weight</Text>
+              <Text style={styles.weightValue}>{weightInLbs} lbs</Text>
+            </View>
+            <TouchableOpacity 
+              style={styles.logWeightButton}
+              onPress={() => setShowWeightModal(true)}>
+              <Plus color={colors.primary} size={18} />
+              <Text style={styles.logWeightText}>Log</Text>
+            </TouchableOpacity>
+          </View>
+          
+          {weightChange !== '--' && (
+            <View style={styles.weightChange}>
+              {parseFloat(weightChange) < 0 ? (
+                <TrendingDown color={colors.primary} size={16} />
+              ) : (
+                <TrendingUp color={colors.danger} size={16} />
+              )}
+              <Text style={[
+                styles.weightChangeText,
+                { color: parseFloat(weightChange) < 0 ? colors.primary : colors.danger }
+              ]}>
+                {Math.abs(parseFloat(weightChange))} lbs from last entry
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Stats Overview */}
+        <View style={styles.statsCard}>
+          <Text style={styles.cardTitle}>This Week</Text>
+          <View style={styles.statsGrid}>
+            <View style={styles.statItem}>
+              <View style={[styles.statIcon, { backgroundColor: colors.accent + '15' }]}>
+                <Activity color={colors.accent} size={20} />
               </View>
-            ))}
+              <Text style={styles.statValue}>{todaysTotals.calories}</Text>
+              <Text style={styles.statLabel}>Calories</Text>
+            </View>
+            <View style={styles.statItem}>
+              <View style={[styles.statIcon, { backgroundColor: colors.primary + '15' }]}>
+                <Target color={colors.primary} size={20} />
+              </View>
+              <Text style={styles.statValue}>{Math.round(todaysTotals.protein)}g</Text>
+              <Text style={styles.statLabel}>Protein</Text>
+            </View>
+            <View style={styles.statItem}>
+              <View style={[styles.statIcon, { backgroundColor: colors.secondary + '15' }]}>
+                <Zap color={colors.secondary} size={20} />
+              </View>
+              <Text style={styles.statValue}>{exerciseStats.totalMinutes}</Text>
+              <Text style={styles.statLabel}>Exercise min</Text>
+            </View>
+            <View style={styles.statItem}>
+              <View style={[styles.statIcon, { backgroundColor: colors.purple + '15' }]}>
+                <Scale color={colors.purple} size={20} />
+              </View>
+              <Text style={styles.statValue}>{exerciseStats.totalCalories}</Text>
+              <Text style={styles.statLabel}>Cal Burned</Text>
+            </View>
           </View>
         </View>
 
-        {/* Calorie Intake Chart */}
+        {/* Calorie Chart */}
         <View style={styles.chartCard}>
           <View style={styles.chartHeader}>
             <Text style={styles.cardTitle}>Calorie Intake</Text>
-            <TouchableOpacity>
-              <Calendar color="#6B7280" size={20} />
-            </TouchableOpacity>
+            <Calendar color={colors.gray} size={20} />
           </View>
           
           <View style={styles.chart}>
             {weeklyData.map((day, index) => {
-              const percentage = (day.calories / day.target) * 100;
-              const height = Math.max((percentage / 100) * 120, 20);
+              const percentage = (day.calories / maxCalories) * 100;
+              const height = Math.max((percentage / 100) * 100, 15);
+              const isOver = day.calories > calorieGoal;
               
               return (
                 <View key={index} style={styles.chartBar}>
                   <View style={styles.barContainer}>
-                    <View style={[styles.targetLine, { backgroundColor: '#E5E7EB' }]} />
-                    <View 
-                      style={[
-                        styles.bar,
-                        { 
-                          height: height,
-                          backgroundColor: percentage > 100 ? '#EF4444' : '#10B981'
-                        }
-                      ]} 
+                    <View style={[styles.targetLine, { backgroundColor: colors.light }]} />
+                    <LinearGradient
+                      colors={isOver ? [colors.danger, '#DC2626'] : [colors.primary, '#34D399']}
+                      style={[styles.bar, { height }]}
                     />
                   </View>
                   <Text style={styles.dayLabel}>{day.day}</Text>
@@ -192,14 +238,48 @@ export default function ProgressScreen() {
           
           <View style={styles.chartLegend}>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#10B981' }]} />
-              <Text style={styles.legendText}>Within Target</Text>
+              <View style={[styles.legendDot, { backgroundColor: colors.primary }]} />
+              <Text style={styles.legendText}>Under Goal</Text>
             </View>
             <View style={styles.legendItem}>
-              <View style={[styles.legendDot, { backgroundColor: '#EF4444' }]} />
-              <Text style={styles.legendText}>Over Target</Text>
+              <View style={[styles.legendDot, { backgroundColor: colors.danger }]} />
+              <Text style={styles.legendText}>Over Goal</Text>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendDot, { backgroundColor: colors.light }]} />
+              <Text style={styles.legendText}>Goal: {calorieGoal}</Text>
             </View>
           </View>
+        </View>
+
+        {/* Weight History */}
+        <View style={styles.historyCard}>
+          <Text style={styles.cardTitle}>Weight History</Text>
+          
+          {weightLogs.length === 0 ? (
+            <View style={styles.emptyHistory}>
+              <Scale color={colors.light} size={32} />
+              <Text style={styles.emptyText}>No weight logged yet</Text>
+              <Text style={styles.emptySubtext}>Tap "Log" to add your weight</Text>
+            </View>
+          ) : (
+            weightLogs.slice(0, 7).map((log, index) => (
+              <View key={log.id} style={styles.historyItem}>
+                <View style={styles.historyLeft}>
+                  <Text style={styles.historyDate}>
+                    {new Date(log.logged_at).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric' 
+                    })}
+                  </Text>
+                  {log.body_fat_percentage && (
+                    <Text style={styles.historyFat}>{log.body_fat_percentage}% body fat</Text>
+                  )}
+                </View>
+                <Text style={styles.historyWeight}>{Math.round(log.weight_kg * 2.205)} lbs</Text>
+              </View>
+            ))
+          )}
         </View>
 
         {/* Achievements */}
@@ -218,190 +298,245 @@ export default function ProgressScreen() {
                   { backgroundColor: achievement.color + (achievement.unlocked ? '20' : '10') }
                 ]}>
                   <achievement.icon 
-                    color={achievement.unlocked ? achievement.color : '#9CA3AF'} 
-                    size={24} 
+                    color={achievement.unlocked ? achievement.color : colors.gray} 
+                    size={22} 
                   />
                 </View>
-                <View style={styles.achievementContent}>
-                  <Text style={[
-                    styles.achievementTitle,
-                    !achievement.unlocked && styles.achievementTitleLocked
-                  ]}>
-                    {achievement.title}
-                  </Text>
-                  <Text style={[
-                    styles.achievementDescription,
-                    !achievement.unlocked && styles.achievementDescriptionLocked
-                  ]}>
-                    {achievement.description}
-                  </Text>
-                </View>
+                <Text style={[
+                  styles.achievementTitle,
+                  !achievement.unlocked && styles.achievementTitleLocked
+                ]}>
+                  {achievement.title}
+                </Text>
+                <Text style={[
+                  styles.achievementDesc,
+                  !achievement.unlocked && styles.achievementDescLocked
+                ]}>
+                  {achievement.desc}
+                </Text>
                 {achievement.unlocked && (
-                  <View style={styles.unlockedBadge}>
-                    <Award color="#F59E0B" size={16} />
+                  <View style={[styles.unlockedBadge, { backgroundColor: achievement.color }]}>
+                    <Text style={styles.unlockedText}>✓</Text>
                   </View>
                 )}
               </View>
             ))}
           </View>
         </View>
+      </ScrollView>
 
-        {/* Weekly Goals */}
-        <View style={styles.goalsCard}>
-          <Text style={styles.cardTitle}>Weekly Goals</Text>
-          
-          <View style={styles.goalItem}>
-            <View style={styles.goalHeader}>
-              <Text style={styles.goalTitle}>Calorie Target</Text>
-              <Text style={styles.goalProgress}>5/7 days</Text>
+      {/* Log Weight Modal */}
+      <Modal
+        visible={showWeightModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowWeightModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Log Weight</Text>
+              <TouchableOpacity onPress={() => setShowWeightModal(false)}>
+                <X color={colors.gray} size={24} />
+              </TouchableOpacity>
             </View>
-            <View style={styles.progressBar}>
-              <View style={[styles.progress, { width: '71%' }]} />
-            </View>
-          </View>
 
-          <View style={styles.goalItem}>
-            <View style={styles.goalHeader}>
-              <Text style={styles.goalTitle}>Exercise Sessions</Text>
-              <Text style={styles.goalProgress}>3/5 sessions</Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Weight (lbs)</Text>
+              <TextInput
+                style={styles.input}
+                value={newWeight}
+                onChangeText={setNewWeight}
+                placeholder="150"
+                placeholderTextColor={colors.gray}
+                keyboardType="numeric"
+              />
             </View>
-            <View style={styles.progressBar}>
-              <View style={[styles.progress, { width: '60%' }]} />
-            </View>
-          </View>
 
-          <View style={styles.goalItem}>
-            <View style={styles.goalHeader}>
-              <Text style={styles.goalTitle}>Water Intake</Text>
-              <Text style={styles.goalProgress}>6/7 days</Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Body Fat % (optional)</Text>
+              <TextInput
+                style={styles.input}
+                value={bodyFat}
+                onChangeText={setBodyFat}
+                placeholder="18"
+                placeholderTextColor={colors.gray}
+                keyboardType="numeric"
+              />
             </View>
-            <View style={styles.progressBar}>
-              <View style={[styles.progress, { width: '86%' }]} />
-            </View>
+
+            <TouchableOpacity
+              style={styles.submitButton}
+              onPress={handleLogWeight}>
+              <Text style={styles.submitButtonText}>Save Weight</Text>
+            </TouchableOpacity>
           </View>
         </View>
-      </ScrollView>
-    </SafeAreaView>
+      </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8fafc',
+    backgroundColor: colors.background,
   },
   header: {
-    paddingHorizontal: 20,
-    paddingVertical: 24,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 32,
+    borderBottomRightRadius: 32,
   },
   headerContent: {
+    paddingHorizontal: 20,
     paddingTop: 10,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#ffffff',
+    fontSize: 28,
+    fontWeight: '700',
+    color: colors.white,
   },
   headerSubtitle: {
-    fontSize: 16,
-    color: '#ffffff',
-    opacity: 0.9,
+    fontSize: 14,
+    color: colors.white,
+    opacity: 0.8,
     marginTop: 4,
   },
   content: {
     flex: 1,
+    marginTop: -16,
     padding: 20,
   },
   periodSelector: {
     flexDirection: 'row',
-    backgroundColor: '#ffffff',
+    backgroundColor: colors.white,
     borderRadius: 12,
     padding: 4,
     marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
   },
   periodButton: {
     flex: 1,
-    paddingVertical: 12,
+    paddingVertical: 10,
     alignItems: 'center',
-    borderRadius: 8,
+    borderRadius: 10,
   },
   periodButtonActive: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: colors.purple,
   },
   periodText: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#6B7280',
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.gray,
   },
   periodTextActive: {
-    color: '#ffffff',
+    color: colors.white,
   },
-  overviewCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+  weightCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: colors.dark,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.06,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 2,
+  },
+  weightHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  weightLabel: {
+    fontSize: 14,
+    color: colors.gray,
+  },
+  weightValue: {
+    fontSize: 36,
+    fontWeight: '700',
+    color: colors.dark,
+    marginTop: 4,
+  },
+  logWeightButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '15',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+  },
+  logWeightText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.primary,
+    marginLeft: 4,
+  },
+  weightChange: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: colors.light,
+  },
+  weightChangeText: {
+    fontSize: 13,
+    marginLeft: 6,
+  },
+  statsCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 16,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
   },
   cardTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#1f2937',
+    color: colors.dark,
     marginBottom: 16,
   },
-  overviewGrid: {
+  statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
   },
-  statCard: {
-    width: (width - 60) / 2,
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+  statItem: {
+    width: '48%',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  statTitle: {
-    fontSize: 14,
-    color: '#6b7280',
+  statIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    justifyContent: 'center',
+    alignItems: 'center',
     marginBottom: 8,
   },
-  statCurrent: {
+  statValue: {
     fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 4,
+    fontWeight: '700',
+    color: colors.dark,
   },
-  statChange: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statChangeText: {
-    fontSize: 14,
-    fontWeight: '500',
-    marginLeft: 4,
+  statLabel: {
+    fontSize: 12,
+    color: colors.gray,
+    marginTop: 2,
   },
   chartCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+    backgroundColor: colors.white,
+    borderRadius: 20,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: colors.dark,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.06,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 2,
   },
   chartHeader: {
     flexDirection: 'row',
@@ -414,39 +549,41 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'flex-end',
     height: 140,
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
   },
   chartBar: {
     alignItems: 'center',
     flex: 1,
   },
   barContainer: {
-    height: 120,
+    height: 100,
     justifyContent: 'flex-end',
+    width: '100%',
     alignItems: 'center',
-    position: 'relative',
   },
   targetLine: {
     position: 'absolute',
-    top: 0,
-    width: 20,
+    width: '80%',
     height: 2,
-    borderRadius: 1,
+    top: '50%',
   },
   bar: {
-    width: 16,
-    borderRadius: 8,
-    minHeight: 4,
+    width: 24,
+    borderRadius: 6,
+    marginBottom: 8,
   },
   dayLabel: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 8,
+    fontSize: 11,
+    color: colors.gray,
+    fontWeight: '500',
   },
   chartLegend: {
     flexDirection: 'row',
     justifyContent: 'center',
     marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: colors.light,
   },
   legendItem: {
     flexDirection: 'row',
@@ -454,112 +591,182 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
   },
   legendDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
     marginRight: 6,
   },
   legendText: {
     fontSize: 12,
-    color: '#6b7280',
+    color: colors.gray,
   },
-  achievementsCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
+  historyCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
     padding: 20,
     marginBottom: 16,
-    shadowColor: '#000',
+    shadowColor: colors.dark,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.06,
     shadowRadius: 8,
-    elevation: 3,
+    elevation: 2,
   },
-  achievementsGrid: {
-    marginTop: 8,
+  emptyHistory: {
+    alignItems: 'center',
+    paddingVertical: 24,
   },
-  achievementItem: {
+  emptyText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.gray,
+    marginTop: 12,
+  },
+  emptySubtext: {
+    fontSize: 12,
+    color: colors.gray,
+    marginTop: 4,
+  },
+  historyItem: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
+    borderBottomColor: colors.light,
+  },
+  historyLeft: {},
+  historyDate: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: colors.dark,
+  },
+  historyFat: {
+    fontSize: 12,
+    color: colors.gray,
+    marginTop: 2,
+  },
+  historyWeight: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.purple,
+  },
+  achievementsCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  achievementsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+  },
+  achievementItem: {
+    width: '48%',
+    backgroundColor: colors.background,
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+    position: 'relative',
+    overflow: 'hidden',
   },
   achievementLocked: {
     opacity: 0.6,
   },
   achievementIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 16,
-  },
-  achievementContent: {
-    flex: 1,
+    marginBottom: 10,
   },
   achievementTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#1f2937',
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.dark,
   },
   achievementTitleLocked: {
-    color: '#9ca3af',
+    color: colors.gray,
   },
-  achievementDescription: {
-    fontSize: 14,
-    color: '#6b7280',
-    marginTop: 2,
+  achievementDesc: {
+    fontSize: 11,
+    color: colors.gray,
+    marginTop: 4,
   },
-  achievementDescriptionLocked: {
-    color: '#d1d5db',
+  achievementDescLocked: {
+    color: colors.gray,
   },
   unlockedBadge: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#fef3c7',
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  goalsCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
+  unlockedText: {
+    color: colors.white,
+    fontSize: 12,
+    fontWeight: '700',
   },
-  goalItem: {
-    marginBottom: 20,
+  // Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
   },
-  goalHeader: {
+  modalContent: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+  },
+  modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: colors.dark,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.gray,
     marginBottom: 8,
   },
-  goalTitle: {
+  input: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     fontSize: 16,
-    fontWeight: '500',
-    color: '#1f2937',
+    color: colors.dark,
   },
-  goalProgress: {
-    fontSize: 14,
-    color: '#6b7280',
+  submitButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 14,
+    paddingVertical: 16,
+    alignItems: 'center',
+    marginTop: 8,
   },
-  progressBar: {
-    height: 8,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  progress: {
-    height: '100%',
-    backgroundColor: '#10B981',
-    borderRadius: 4,
+  submitButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '600',
   },
 });
