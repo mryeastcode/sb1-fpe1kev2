@@ -8,7 +8,9 @@ import {
   TextInput,
   Modal,
   Alert,
+  Image,
   FlatList,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -24,9 +26,15 @@ import {
   Flame,
   Target,
   Wheat,
-  Droplets,
+  Camera,
+  Image as ImageIcon,
+  Trash2,
 } from 'lucide-react-native';
 import { useNutrition, Food, NutritionLog } from '@/hooks/useNutrition';
+import { useMealPhotos, quickFoods, mealCalorieEstimates, MealPhoto } from '@/hooks/useMealPhotos';
+import { useImageUpload } from '@/hooks/useImageUpload';
+
+const { width } = Dimensions.get('window');
 
 const colors = {
   primary: '#10B981',
@@ -52,16 +60,24 @@ export default function NutritionScreen() {
     deleteLog 
   } = useNutrition();
 
+  const { photos, addPhoto, deletePhoto } = useMealPhotos();
+  const { pickImage, takePhoto, uploadImage, uploading } = useImageUpload();
+
   const [searchText, setSearchText] = useState('');
   const [selectedMeal, setSelectedMeal] = useState<'breakfast' | 'lunch' | 'dinner' | 'snack'>('breakfast');
   const [showFoodModal, setShowFoodModal] = useState(false);
   const [selectedFood, setSelectedFood] = useState<Food | null>(null);
   const [quantity, setQuantity] = useState('1');
-
-  const calorieGoal = 2000;
-  const proteinGoal = 120;
-  const carbsGoal = 250;
-  const fatGoal = 65;
+  
+  // Photo modal states
+  const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [photoUri, setPhotoUri] = useState<string | null>(null);
+  const [showCaloriesModal, setShowCaloriesModal] = useState(false);
+  const [calorieInput, setCalorieInput] = useState('');
+  const [proteinInput, setProteinInput] = useState('');
+  const [carbsInput, setCarbsInput] = useState('');
+  const [fatInput, setFatInput] = useState('');
+  const [mealNotes, setMealNotes] = useState('');
 
   const meals = [
     { id: 'breakfast', label: 'Breakfast', icon: Coffee, color: colors.accent },
@@ -76,6 +92,18 @@ export default function NutritionScreen() {
 
   const mealLogs = nutritionLogs.filter(log => log.meal_type === selectedMeal);
   const caloriesRemaining = calorieGoal - todaysTotals.calories;
+  
+  // Get today's meal photos for selected meal
+  const todaysMealPhotos = photos.filter(p => {
+    const photoDate = new Date(p.logged_at).toDateString();
+    const today = new Date().toDateString();
+    return p.meal_type === selectedMeal && photoDate === today;
+  });
+
+  const calorieGoal = 2000;
+  const proteinGoal = 120;
+  const carbsGoal = 250;
+  const fatGoal = 65;
 
   const handleFoodSelect = (food: Food) => {
     setSelectedFood(food);
@@ -107,6 +135,103 @@ export default function NutritionScreen() {
       ]
     );
   };
+
+  // Photo handling
+  const handleAddPhoto = () => {
+    Alert.alert(
+      'Add Meal Photo',
+      'Choose how to add a photo',
+      [
+        { text: '📷 Take Photo', onPress: handleTakePhoto },
+        { text: '🖼️ Choose from Gallery', onPress: handlePickPhoto },
+        { text: 'Cancel', style: 'cancel' },
+      ]
+    );
+  };
+
+  const handleTakePhoto = async () => {
+    const uri = await takePhoto();
+    if (uri) {
+      setPhotoUri(uri);
+      // Pre-fill with average calories for this meal type
+      setCalorieInput(String(mealCalorieEstimates[selectedMeal].avg));
+      setShowPhotoModal(true);
+    }
+  };
+
+  const handlePickPhoto = async () => {
+    const uri = await pickImage();
+    if (uri) {
+      setPhotoUri(uri);
+      setCalorieInput(String(mealCalorieEstimates[selectedMeal].avg));
+      setShowPhotoModal(true);
+    }
+  };
+
+  const handleQuickSelectFood = (food: typeof quickFoods[0]) => {
+    setCalorieInput(String(food.calories));
+    setProteinInput(String(food.protein));
+    setCarbsInput(String(food.carbs));
+    setFatInput(String(food.fat));
+  };
+
+  const handleSavePhotoMeal = async () => {
+    if (!photoUri) return;
+
+    setShowPhotoModal(false);
+
+    // Upload image first
+    const uploadResult = await uploadImage(photoUri);
+    
+    if (!uploadResult.success || !uploadResult.url) {
+      Alert.alert('❌ Error', uploadResult.error || 'Failed to upload photo');
+      return;
+    }
+
+    // Save to database
+    const result = await addPhoto({
+      imageUrl: uploadResult.url,
+      mealType: selectedMeal,
+      calories: parseInt(calorieInput) || undefined,
+      protein: parseFloat(proteinInput) || undefined,
+      carbs: parseFloat(carbsInput) || undefined,
+      fat: parseFloat(fatInput) || undefined,
+      notes: mealNotes || undefined,
+    });
+
+    if (result.success) {
+      Alert.alert('✅ Meal Photo Saved!', `Calories: ${calorieInput || 0}`);
+    } else {
+      Alert.alert('❌ Error', result.error);
+    }
+
+    // Reset
+    setPhotoUri(null);
+    setCalorieInput('');
+    setProteinInput('');
+    setCarbsInput('');
+    setFatInput('');
+    setMealNotes('');
+  };
+
+  const handleDeletePhoto = async (photoId: string, imageUrl: string) => {
+    Alert.alert(
+      'Delete Photo',
+      'Remove this meal photo?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Delete', 
+          style: 'destructive', 
+          onPress: async () => {
+            await deletePhoto(photoId);
+          } 
+        },
+      ]
+    );
+  };
+
+  const totalPhotoCalories = todaysMealPhotos.reduce((sum, p) => sum + (p.calories || 0), 0);
 
   return (
     <View style={styles.container}>
@@ -170,7 +295,7 @@ export default function NutritionScreen() {
             </View>
             <View style={styles.macroItem}>
               <View style={[styles.macroIcon, { backgroundColor: colors.purple + '15' }]}>
-                <Droplets color={colors.purple} size={16} />
+                <Flame color={colors.purple} size={16} />
               </View>
               <Text style={styles.macroValue}>{Math.round(todaysTotals.fat)}g</Text>
               <Text style={styles.macroLabel}>Fat</Text>
@@ -178,6 +303,18 @@ export default function NutritionScreen() {
             </View>
           </View>
         </View>
+
+        {/* 📸 Meal Photo Button */}
+        <TouchableOpacity style={styles.photoButton} onPress={handleAddPhoto}>
+          <LinearGradient
+            colors={[colors.purple, '#7C3AED']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.photoButtonGradient}>
+            <Camera color={colors.white} size={22} />
+            <Text style={styles.photoButtonText}>📸 Snap Meal Photo</Text>
+          </LinearGradient>
+        </TouchableOpacity>
 
         {/* Meal Tabs */}
         <ScrollView 
@@ -189,6 +326,11 @@ export default function NutritionScreen() {
               const mealCalories = nutritionLogs
                 .filter(l => l.meal_type === meal.id)
                 .reduce((sum, l) => sum + l.calories, 0);
+              const photoCount = photos.filter(p => {
+                const photoDate = new Date(p.logged_at).toDateString();
+                const today = new Date().toDateString();
+                return p.meal_type === meal.id && photoDate === today;
+              }).length;
               
               return (
                 <TouchableOpacity
@@ -212,13 +354,37 @@ export default function NutritionScreen() {
                     styles.mealTabCalories,
                     selectedMeal === meal.id && { color: colors.white, opacity: 0.8 }
                   ]}>
-                    {mealCalories} cal
+                    {mealCalories + (photoCount > 0 ? photos.filter(p => p.meal_type === meal.id && new Date(p.logged_at).toDateString() === new Date().toDateString()).reduce((s, p) => s + (p.calories || 0), 0) : 0)} cal
                   </Text>
                 </TouchableOpacity>
               );
             })}
           </View>
         </ScrollView>
+
+        {/* Meal Photos Display */}
+        {todaysMealPhotos.length > 0 && (
+          <View style={styles.photosCard}>
+            <Text style={styles.photosTitle}>📸 Today's Photos ({todaysMealPhotos.length})</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              {todaysMealPhotos.map((photo) => (
+                <TouchableOpacity 
+                  key={photo.id} 
+                  style={styles.photoThumbnail}
+                  onLongPress={() => handleDeletePhoto(photo.id, photo.image_url)}>
+                  <Image 
+                    source={{ uri: photo.image_url }} 
+                    style={styles.photoImage}
+                  />
+                  <View style={styles.photoOverlay}>
+                    <Text style={styles.photoCal}>{photo.calories || 0} cal</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <Text style={styles.photosTotal}>From photos: {totalPhotoCalories} cal</Text>
+          </View>
+        )}
 
         {/* Search Food */}
         <View style={styles.searchCard}>
@@ -273,50 +439,34 @@ export default function NutritionScreen() {
             {meals.find(m => m.id === selectedMeal)?.label} Today
           </Text>
           
-          {mealLogs.length === 0 ? (
+          {mealLogs.length === 0 && todaysMealPhotos.length === 0 ? (
             <View style={styles.emptyMeal}>
               <Utensils color={colors.light} size={32} />
               <Text style={styles.emptyText}>No foods logged yet</Text>
-              <Text style={styles.emptySubtext}>Search and add foods above</Text>
+              <Text style={styles.emptySubtext}>Search and add foods or snap a photo</Text>
             </View>
           ) : (
-            mealLogs.map((log) => (
-              <TouchableOpacity 
-                key={log.id} 
-                style={styles.foodItem}
-                onLongPress={() => handleDeleteLog(log.id)}>
-                <View style={styles.foodItemLeft}>
-                  <Text style={styles.foodItemName}>{log.food_name || 'Custom Food'}</Text>
-                  <Text style={styles.foodItemQuantity}>
-                    {log.quantity} {log.unit}
-                  </Text>
-                </View>
-                <View style={styles.foodItemRight}>
-                  <Text style={styles.foodItemCalories}>{Math.round(log.calories)}</Text>
-                  <Text style={styles.foodItemCalLabel}>cal</Text>
-                </View>
-              </TouchableOpacity>
-            ))
+            <>
+              {mealLogs.map((log) => (
+                <TouchableOpacity 
+                  key={log.id} 
+                  style={styles.foodItem}
+                  onLongPress={() => handleDeleteLog(log.id)}>
+                  <View style={styles.foodItemLeft}>
+                    <Text style={styles.foodItemName}>{log.food_name || 'Custom Food'}</Text>
+                    <Text style={styles.foodItemQuantity}>
+                      {log.quantity} {log.unit}
+                    </Text>
+                  </View>
+                  <View style={styles.foodItemRight}>
+                    <Text style={styles.foodItemCalories}>{Math.round(log.calories)}</Text>
+                    <Text style={styles.foodItemCalLabel}>cal</Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </>
           )}
         </View>
-
-        {/* Today's All Foods */}
-        {nutritionLogs.length > 0 && (
-          <View style={styles.todayCard}>
-            <Text style={styles.todayTitle}>All Foods Today</Text>
-            {nutritionLogs.map((log) => (
-              <View key={log.id} style={styles.todayItem}>
-                <View style={styles.todayItemLeft}>
-                  <Text style={styles.todayMealType}>
-                    {meals.find(m => m.id === log.meal_type)?.label}
-                  </Text>
-                  <Text style={styles.todayFoodName}>{log.food_name}</Text>
-                </View>
-                <Text style={styles.todayCalories}>{Math.round(log.calories)} cal</Text>
-              </View>
-            ))}
-          </View>
-        )}
       </ScrollView>
 
       {/* Food Quantity Modal */}
@@ -398,6 +548,118 @@ export default function NutritionScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Meal Photo Modal with Calorie Input */}
+      <Modal
+        visible={showPhotoModal}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowPhotoModal(false)}>
+        <View style={styles.modalOverlay}>
+          <ScrollView style={styles.photoModalContent}>
+            <TouchableOpacity 
+              style={styles.modalClose}
+              onPress={() => setShowPhotoModal(false)}>
+              <X color={colors.gray} size={24} />
+            </TouchableOpacity>
+            
+            {photoUri && (
+              <Image source={{ uri: photoUri }} style={styles.photoPreview} />
+            )}
+
+            <Text style={styles.modalTitle}>📸 Meal Nutrition</Text>
+            <Text style={styles.modalSubtitle}>
+              Estimate calories from your meal photo
+            </Text>
+
+            {/* Quick Food Select */}
+            <Text style={styles.quickSelectLabel}>Quick Add (tap to fill):</Text>
+            <View style={styles.quickFoodGrid}>
+              {quickFoods.slice(0, 6).map((food, idx) => (
+                <TouchableOpacity
+                  key={idx}
+                  style={styles.quickFoodChip}
+                  onPress={() => handleQuickSelectFood(food)}>
+                  <Text style={styles.quickFoodText}>{food.name}</Text>
+                  <Text style={styles.quickFoodCal}>{food.calories} cal</Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Manual Input */}
+            <View style={styles.nutritionInputGroup}>
+              <Text style={styles.inputLabel}>Calories *</Text>
+              <TextInput
+                style={styles.nutritionInput}
+                value={calorieInput}
+                onChangeText={setCalorieInput}
+                placeholder="350"
+                placeholderTextColor={colors.gray}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.nutritionRow}>
+              <View style={[styles.nutritionInputGroup, { flex: 1, marginRight: 8 }]}>
+                <Text style={styles.inputLabel}>Protein (g)</Text>
+                <TextInput
+                  style={styles.nutritionInput}
+                  value={proteinInput}
+                  onChangeText={setProteinInput}
+                  placeholder="20"
+                  placeholderTextColor={colors.gray}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={[styles.nutritionInputGroup, { flex: 1, marginLeft: 8 }]}>
+                <Text style={styles.inputLabel}>Carbs (g)</Text>
+                <TextInput
+                  style={styles.nutritionInput}
+                  value={carbsInput}
+                  onChangeText={setCarbsInput}
+                  placeholder="40"
+                  placeholderTextColor={colors.gray}
+                  keyboardType="numeric"
+                />
+              </View>
+            </View>
+
+            <View style={styles.nutritionInputGroup}>
+              <Text style={styles.inputLabel}>Fat (g)</Text>
+              <TextInput
+                style={styles.nutritionInput}
+                value={fatInput}
+                onChangeText={setFatInput}
+                placeholder="15"
+                placeholderTextColor={colors.gray}
+                keyboardType="numeric"
+              />
+            </View>
+
+            <View style={styles.nutritionInputGroup}>
+              <Text style={styles.inputLabel}>Notes (optional)</Text>
+              <TextInput
+                style={[styles.nutritionInput, { height: 60, textAlignVertical: 'top' }]}
+                value={mealNotes}
+                onChangeText={setMealNotes}
+                placeholder="e.g., Lunch with friends..."
+                placeholderTextColor={colors.gray}
+                multiline
+              />
+            </View>
+
+            <TouchableOpacity
+              style={[styles.addModalButton, uploading && { opacity: 0.6 }]}
+              onPress={handleSavePhotoMeal}
+              disabled={uploading}>
+              <Camera color={colors.white} size={20} />
+              <Text style={styles.addModalButtonText}>
+                {uploading ? 'Uploading...' : 'Save Meal Photo'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -446,7 +708,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   summaryLabel: {
     fontSize: 14,
@@ -516,6 +778,80 @@ const styles = StyleSheet.create({
     color: colors.gray,
     marginTop: 2,
   },
+  // Photo button
+  photoButton: {
+    marginTop: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: colors.purple,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  photoButtonGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+  },
+  photoButtonText: {
+    color: colors.white,
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
+  },
+  // Photos card
+  photosCard: {
+    backgroundColor: colors.white,
+    borderRadius: 20,
+    padding: 16,
+    marginTop: 16,
+    shadowColor: colors.dark,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  photosTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.dark,
+    marginBottom: 12,
+  },
+  photoThumbnail: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    marginRight: 10,
+    overflow: 'hidden',
+  },
+  photoImage: {
+    width: '100%',
+    height: '100%',
+  },
+  photoOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    padding: 4,
+  },
+  photoCal: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  photosTotal: {
+    fontSize: 13,
+    color: colors.purple,
+    fontWeight: '500',
+    marginTop: 12,
+    textAlign: 'right',
+  },
+  // Meal tabs
   mealTabsContainer: {
     marginTop: 16,
     marginHorizontal: -20,
@@ -619,6 +955,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 20,
     marginTop: 16,
+    marginBottom: 20,
     shadowColor: colors.dark,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -679,51 +1016,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: colors.gray,
   },
-  todayCard: {
-    backgroundColor: colors.white,
-    borderRadius: 20,
-    padding: 20,
-    marginTop: 16,
-    marginBottom: 20,
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  todayTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.dark,
-    marginBottom: 16,
-  },
-  todayItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.light,
-  },
-  todayItemLeft: {
-    flex: 1,
-  },
-  todayMealType: {
-    fontSize: 11,
-    color: colors.primary,
-    fontWeight: '500',
-    textTransform: 'uppercase',
-  },
-  todayFoodName: {
-    fontSize: 14,
-    color: colors.dark,
-    marginTop: 2,
-  },
-  todayCalories: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.gray,
-  },
   // Modal
   modalOverlay: {
     flex: 1,
@@ -736,6 +1028,13 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 28,
     padding: 24,
     paddingTop: 16,
+  },
+  photoModalContent: {
+    backgroundColor: colors.white,
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 24,
+    maxHeight: '90%',
   },
   modalClose: {
     alignSelf: 'flex-end',
@@ -750,7 +1049,41 @@ const styles = StyleSheet.create({
   modalSubtitle: {
     fontSize: 14,
     color: colors.gray,
-    marginBottom: 24,
+    marginBottom: 20,
+  },
+  photoPreview: {
+    width: '100%',
+    height: 200,
+    borderRadius: 16,
+    marginBottom: 20,
+  },
+  quickSelectLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: colors.gray,
+    marginBottom: 10,
+  },
+  quickFoodGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 20,
+  },
+  quickFoodChip: {
+    backgroundColor: colors.background,
+    borderRadius: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginRight: 8,
+    marginBottom: 8,
+  },
+  quickFoodText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: colors.dark,
+  },
+  quickFoodCal: {
+    fontSize: 10,
+    color: colors.gray,
   },
   quantitySection: {
     marginBottom: 24,
@@ -815,11 +1148,33 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
     borderRadius: 14,
     paddingVertical: 16,
+    marginTop: 8,
   },
   addModalButtonText: {
     color: colors.white,
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  // Nutrition input
+  nutritionInputGroup: {
+    marginBottom: 16,
+  },
+  nutritionRow: {
+    flexDirection: 'row',
+  },
+  inputLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.gray,
+    marginBottom: 8,
+  },
+  nutritionInput: {
+    backgroundColor: colors.background,
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: colors.dark,
   },
 });
