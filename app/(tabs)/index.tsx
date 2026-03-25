@@ -19,23 +19,46 @@ import {
   TrendingUp 
 } from 'lucide-react-native';
 import { useAuth } from '@/hooks/useAuth';
+import { useNutrition } from '@/hooks/useNutrition';
+import { useWater } from '@/hooks/useWater';
+import { useExercise } from '@/hooks/useExercise';
 
 const { width } = Dimensions.get('window');
 
 export default function HomeScreen() {
   const { user } = useAuth();
-  const [waterIntake, setWaterIntake] = useState(6);
-  const [caloriesConsumed, setCaloriesConsumed] = useState(1250);
-  const [caloriesTarget] = useState(2000);
-  const [stepsToday] = useState(8543);
-  const [stepsTarget] = useState(10000);
+  const { todaysTotals: nutritionTotals } = useNutrition();
+  const { todaysIntake: waterIntake, glasses, progress: waterProgress, quickAdd } = useWater();
+  const { weeklyStats: exerciseStats } = useExercise();
+
+  // Default goals (these would come from user profile)
+  const calorieGoal = 2000;
+  const stepsGoal = 10000;
+
+  const calorieProgress = Math.round((nutritionTotals.calories / calorieGoal) * 100);
+  const stepsProgress = 85; // Mock for now - would come from device
 
   const quickActions = [
-    { icon: Plus, label: 'Log Food', color: '#10B981' },
-    { icon: Target, label: 'Workout', color: '#3B82F6' },
-    { icon: Droplets, label: 'Water', color: '#06B6D4' },
-    { icon: Clock, label: 'Sleep', color: '#8B5CF6' },
+    { id: 'food', icon: Plus, label: 'Log Food', color: '#10B981', action: 'nutrition' },
+    { id: 'water', icon: Droplets, label: 'Add Water', color: '#06B6D4', action: 'addWater' },
+    { id: 'exercise', icon: Target, label: 'Workout', color: '#3B82F6', action: 'exercise' },
+    { id: 'sleep', icon: Clock, label: 'Sleep', color: '#8B5CF6', action: 'sleep' },
   ];
+
+  const handleQuickAction = async (action: string) => {
+    if (action === 'addWater') {
+      await quickAdd(1);
+    }
+    // Other actions would navigate to respective screens
+  };
+
+  // Get greeting based on time
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good Morning!';
+    if (hour < 18) return 'Good Afternoon!';
+    return 'Good Evening!';
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -45,9 +68,9 @@ export default function HomeScreen() {
         end={{ x: 1, y: 1 }}
         style={styles.header}>
         <View style={styles.headerContent}>
-          <Text style={styles.greeting}>Good Morning!</Text>
+          <Text style={styles.greeting}>{getGreeting()}</Text>
           <Text style={styles.username}>
-            {user?.user_metadata?.full_name || 'Welcome'}
+            {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Welcome'}
           </Text>
         </View>
       </LinearGradient>
@@ -59,21 +82,21 @@ export default function HomeScreen() {
           <View style={styles.summaryRow}>
             <View style={styles.summaryItem}>
               <Flame color="#F59E0B" size={24} />
-              <Text style={styles.summaryNumber}>{caloriesConsumed}</Text>
+              <Text style={styles.summaryNumber}>{nutritionTotals.calories}</Text>
               <Text style={styles.summaryLabel}>Calories</Text>
-              <Text style={styles.summarySubtext}>of {caloriesTarget}</Text>
+              <Text style={styles.summarySubtext}>of {calorieGoal}</Text>
             </View>
             <View style={styles.summaryItem}>
               <Target color="#3B82F6" size={24} />
-              <Text style={styles.summaryNumber}>{stepsToday}</Text>
-              <Text style={styles.summaryLabel}>Steps</Text>
-              <Text style={styles.summarySubtext}>of {stepsTarget}</Text>
+              <Text style={styles.summaryNumber}>{Math.round(nutritionTotals.protein)}g</Text>
+              <Text style={styles.summaryLabel}>Protein</Text>
+              <Text style={styles.summarySubtext}>goal: 120g</Text>
             </View>
             <View style={styles.summaryItem}>
               <Droplets color="#06B6D4" size={24} />
-              <Text style={styles.summaryNumber}>{waterIntake}</Text>
+              <Text style={styles.summaryNumber}>{glasses}</Text>
               <Text style={styles.summaryLabel}>Glasses</Text>
-              <Text style={styles.summarySubtext}>of 8</Text>
+              <Text style={styles.summarySubtext}>{Math.round(waterProgress)}% of 8</Text>
             </View>
           </View>
         </View>
@@ -83,20 +106,22 @@ export default function HomeScreen() {
           <Text style={styles.cardTitle}>Daily Goals</Text>
           <View style={styles.progressRow}>
             <View style={styles.progressItem}>
-              <View style={styles.progressRing}>
-                <Text style={styles.progressPercent}>63%</Text>
+              <View style={[styles.progressRing, { 
+                borderColor: calorieProgress >= 100 ? '#10B981' : '#F59E0B' 
+              }]}>
+                <Text style={styles.progressPercent}>{calorieProgress}%</Text>
               </View>
               <Text style={styles.progressLabel}>Calories</Text>
             </View>
             <View style={styles.progressItem}>
               <View style={[styles.progressRing, { borderColor: '#3B82F6' }]}>
-                <Text style={styles.progressPercent}>85%</Text>
+                <Text style={styles.progressPercent}>{stepsProgress}%</Text>
               </View>
               <Text style={styles.progressLabel}>Steps</Text>
             </View>
             <View style={styles.progressItem}>
               <View style={[styles.progressRing, { borderColor: '#06B6D4' }]}>
-                <Text style={styles.progressPercent}>75%</Text>
+                <Text style={styles.progressPercent}>{Math.round(waterProgress)}%</Text>
               </View>
               <Text style={styles.progressLabel}>Water</Text>
             </View>
@@ -107,8 +132,12 @@ export default function HomeScreen() {
         <View style={styles.actionsCard}>
           <Text style={styles.cardTitle}>Quick Actions</Text>
           <View style={styles.actionsGrid}>
-            {quickActions.map((action, index) => (
-              <TouchableOpacity key={index} style={styles.actionButton}>
+            {quickActions.map((action) => (
+              <TouchableOpacity 
+                key={action.id} 
+                style={styles.actionButton}
+                onPress={() => handleQuickAction(action.action)}
+              >
                 <View style={[styles.actionIcon, { backgroundColor: action.color + '20' }]}>
                   <action.icon color={action.color} size={24} />
                 </View>
@@ -118,10 +147,10 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* Recent Activities */}
+        {/* Weekly Exercise Summary */}
         <View style={styles.activitiesCard}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Recent Activities</Text>
+            <Text style={styles.cardTitle}>This Week</Text>
             <TouchableOpacity>
               <Text style={styles.viewAllText}>View All</Text>
             </TouchableOpacity>
@@ -129,35 +158,35 @@ export default function HomeScreen() {
           
           <View style={styles.activityItem}>
             <View style={styles.activityIcon}>
-              <Flame color="#F59E0B" size={20} />
+              <Clock color="#3B82F6" size={20} />
             </View>
             <View style={styles.activityContent}>
-              <Text style={styles.activityTitle}>Breakfast Logged</Text>
-              <Text style={styles.activityTime}>2 hours ago</Text>
+              <Text style={styles.activityTitle}>Exercise Time</Text>
+              <Text style={styles.activityTime}>This week</Text>
             </View>
-            <Text style={styles.activityValue}>420 cal</Text>
+            <Text style={styles.activityValue}>{exerciseStats.totalMinutes} min</Text>
           </View>
 
           <View style={styles.activityItem}>
             <View style={styles.activityIcon}>
-              <Target color="#3B82F6" size={20} />
+              <Flame color="#EF4444" size={20} />
             </View>
             <View style={styles.activityContent}>
-              <Text style={styles.activityTitle}>Morning Run</Text>
-              <Text style={styles.activityTime}>3 hours ago</Text>
+              <Text style={styles.activityTitle}>Calories Burned</Text>
+              <Text style={styles.activityTime}>This week</Text>
             </View>
-            <Text style={styles.activityValue}>312 cal</Text>
+            <Text style={styles.activityValue}>{exerciseStats.totalCalories} cal</Text>
           </View>
 
           <View style={styles.activityItem}>
             <View style={styles.activityIcon}>
-              <Droplets color="#06B6D4" size={20} />
+              <Target color="#10B981" size={20} />
             </View>
             <View style={styles.activityContent}>
-              <Text style={styles.activityTitle}>Water Intake</Text>
-              <Text style={styles.activityTime}>1 hour ago</Text>
+              <Text style={styles.activityTitle}>Workouts</Text>
+              <Text style={styles.activityTime}>This week</Text>
             </View>
-            <Text style={styles.activityValue}>2 glasses</Text>
+            <Text style={styles.activityValue}>{exerciseStats.workoutCount}</Text>
           </View>
         </View>
       </ScrollView>
