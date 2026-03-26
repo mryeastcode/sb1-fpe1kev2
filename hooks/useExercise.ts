@@ -63,8 +63,8 @@ export function useExercise() {
     durationMinutes: number,
     caloriesBurned: number,
     notes: string = ''
-  ) => {
-    if (!user) return;
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: 'Not authenticated' };
 
     try {
       const { error } = await supabase
@@ -82,9 +82,9 @@ export function useExercise() {
       
       await fetchExerciseLogs();
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error logging exercise:', error);
-      return { success: false, error };
+      return { success: false, error: error.message };
     }
   };
 

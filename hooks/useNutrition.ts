@@ -111,8 +111,8 @@ export function useNutrition() {
     mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack',
     quantity: number,
     unit: string = 'serving'
-  ) => {
-    if (!user) return;
+  ): Promise<{ success: boolean; error?: string }> => {
+    if (!user) return { success: false, error: 'Not authenticated' };
 
     try {
       const calories = Math.round(food.calories_per_serving * quantity);
@@ -141,9 +141,9 @@ export function useNutrition() {
       // Refresh logs
       await fetchTodaysLogs();
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error logging food:', error);
-      return { success: false, error };
+      return { success: false, error: error.message };
     }
   };
 

@@ -7,11 +7,28 @@ import {
   TouchableOpacity,
   Switch,
 } from 'react-native';
+import { LucideIcon } from 'lucide-react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { User, Settings, Bell, Shield, Circle as HelpCircle, Share2, Star, LogOut, ChevronRight, CreditCard as Edit, Camera, Target, Award } from 'lucide-react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { router } from 'expo-router';
+
+interface MenuItem {
+  icon: LucideIcon;
+  label: string;
+  hasChevron?: boolean;
+  hasSwitch?: boolean;
+  value?: boolean;
+  onToggle?: (value: boolean) => void;
+  onPress?: () => void;
+  isDestructive?: boolean;
+}
+
+interface MenuSection {
+  title: string;
+  items: MenuItem[];
+}
 
 export default function ProfileScreen() {
   const [notifications, setNotifications] = useState(true);
@@ -34,7 +51,7 @@ export default function ProfileScreen() {
     { label: 'Calories Today', value: '1,250 cal', icon: Target },
   ];
 
-  const menuSections = [
+  const menuSections: MenuSection[] = [
     {
       title: 'Account',
       items: [

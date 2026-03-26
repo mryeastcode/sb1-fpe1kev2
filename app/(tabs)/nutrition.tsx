@@ -90,6 +90,11 @@ export default function NutritionScreen() {
     food.name.toLowerCase().includes(searchText.toLowerCase())
   );
 
+  const calorieGoal = 2000;
+  const proteinGoal = 120;
+  const carbsGoal = 250;
+  const fatGoal = 65;
+
   const mealLogs = nutritionLogs.filter(log => log.meal_type === selectedMeal);
   const caloriesRemaining = calorieGoal - todaysTotals.calories;
   
@@ -99,11 +104,6 @@ export default function NutritionScreen() {
     const today = new Date().toDateString();
     return p.meal_type === selectedMeal && photoDate === today;
   });
-
-  const calorieGoal = 2000;
-  const proteinGoal = 120;
-  const carbsGoal = 250;
-  const fatGoal = 65;
 
   const handleFoodSelect = (food: Food) => {
     setSelectedFood(food);

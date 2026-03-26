@@ -195,7 +195,7 @@ export default function SignupScreen() {
                     { key: 'hasNumbers', label: 'Number' },
                     { key: 'hasSpecialChar', label: 'Special character' }
                   ].map((req) => {
-                    const isValid = validatePassword(password).errors[req.key];
+                    const isValid = (validatePassword(password).errors as Record<string, boolean>)[req.key];
                     return (
                       <Text key={req.key} style={[styles.requirement, { color: isValid ? '#10B981' : '#9CA3AF' }]}>
                         {isValid ? '✓' : '○'} {req.label}

@@ -46,9 +46,17 @@ const colors = {
 };
 
 export default function ProgressScreen() {
-  const { weightLogs, logWeight, weeklyStats: nutritionStats } = useProfile();
+  const { weightLogs, logWeight } = useProfile();
   const { todaysTotals, nutritionLogs } = useNutrition();
   const { weeklyStats: exerciseStats } = useExercise();
+  
+  // Calculate weekly nutrition stats from today's totals
+  const nutritionStats = {
+    totalCalories: todaysTotals.calories,
+    totalProtein: todaysTotals.protein,
+    totalCarbs: todaysTotals.carbs,
+    totalFat: todaysTotals.fat,
+  };
   
   const [selectedPeriod, setSelectedPeriod] = useState('week');
   const [showWeightModal, setShowWeightModal] = useState(false);
@@ -68,7 +76,7 @@ export default function ProgressScreen() {
   const weeklyData = [
     { day: 'Mon', calories: 1850 },
     { day: 'Tue', calories: 2100 },
-    { day: 'Wed', calories: nutritionStats.totalMinutes > 0 ? todaysTotals.calories : 1950 },
+    { day: 'Wed', calories: exerciseStats.totalMinutes > 0 ? todaysTotals.calories : 1950 },
     { day: 'Thu', calories: 1800 },
     { day: 'Fri', calories: 2050 },
     { day: 'Sat', calories: 2200 },

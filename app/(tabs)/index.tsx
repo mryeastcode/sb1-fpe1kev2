@@ -18,7 +18,7 @@ import {
   TrendingUp,
   Moon,
   Sun,
-  Walk,
+  Footprints,
   Activity,
 } from 'lucide-react-native';
 import { useAuth } from '@/hooks/useAuth';

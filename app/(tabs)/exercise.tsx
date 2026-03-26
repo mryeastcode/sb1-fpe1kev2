@@ -19,12 +19,12 @@ import {
   X,
   Check,
   TrendingUp,
-  Walk,
+  Footprints,
   Bike,
   Dumbbell,
-  Run,
-  Swim,
-  Yoga,
+  PersonStanding,
+  Waves,
+  Sparkles,
 } from 'lucide-react-native';
 import { useExercise, ExerciseLog } from '@/hooks/useExercise';
 
@@ -43,23 +43,23 @@ const colors = {
 };
 
 const exerciseIcons: Record<string, any> = {
-  'Running': Run,
-  'Walking': Walk,
+  'Running': PersonStanding,
+  'Walking': Footprints,
   'Cycling': Bike,
-  'Swimming': Swim,
+  'Swimming': Waves,
   'Weight Training': Dumbbell,
-  'Yoga': Yoga,
+  'Yoga': Sparkles,
   'HIIT': Flame,
-  'Jump Rope': Run,
+  'Jump Rope': PersonStanding,
 };
 
 const quickExercises = [
-  { name: 'Running', calPerMin: 11, icon: Run },
-  { name: 'Walking', calPerMin: 4, icon: Walk },
+  { name: 'Running', calPerMin: 11, icon: PersonStanding },
+  { name: 'Walking', calPerMin: 4, icon: Footprints },
   { name: 'Cycling', calPerMin: 8, icon: Bike },
-  { name: 'Swimming', calPerMin: 9, icon: Swim },
+  { name: 'Swimming', calPerMin: 9, icon: Waves },
   { name: 'Weight Training', calPerMin: 6, icon: Dumbbell },
-  { name: 'Yoga', calPerMin: 3, icon: Yoga },
+  { name: 'Yoga', calPerMin: 3, icon: Sparkles },
 ];
 
 export default function ExerciseScreen() {
