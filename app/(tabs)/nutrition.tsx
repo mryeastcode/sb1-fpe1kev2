@@ -14,6 +14,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { 
   Search, 
   Plus, 
@@ -33,6 +34,8 @@ import {
 import { useNutrition, Food, NutritionLog } from '@/hooks/useNutrition';
 import { useMealPhotos, quickFoods, mealCalorieEstimates, MealPhoto } from '@/hooks/useMealPhotos';
 import { useImageUpload } from '@/hooks/useImageUpload';
+import { useProfile } from '@/hooks/useProfile';
+import { GlassCard, Icon3DWrapper } from '@/components/ui/GlassCard';
 
 const { width } = Dimensions.get('window');
 
@@ -47,7 +50,7 @@ const colors = {
   gray: '#6B7280',
   light: '#F3F4F6',
   white: '#FFFFFF',
-  background: '#F8FAFC',
+  background: '#0F172A', // Dark background for glassmorphism
 };
 
 export default function NutritionScreen() {
@@ -59,6 +62,14 @@ export default function NutritionScreen() {
     logFood, 
     deleteLog 
   } = useNutrition();
+  
+  const { profile } = useProfile();
+  
+  // Get goals from profile or use defaults
+  const calorieGoal = profile?.daily_calorie_goal || 2000;
+  const proteinGoal = profile?.daily_protein_goal || 120;
+  const carbsGoal = profile?.daily_carb_goal || 250;
+  const fatGoal = profile?.daily_fat_goal || 65;
 
   const { photos, addPhoto, deletePhoto } = useMealPhotos();
   const { pickImage, takePhoto, uploadImage, uploading } = useImageUpload();
@@ -89,11 +100,6 @@ export default function NutritionScreen() {
   const filteredFoods = foods.filter(food =>
     food.name.toLowerCase().includes(searchText.toLowerCase())
   );
-
-  const calorieGoal = 2000;
-  const proteinGoal = 120;
-  const carbsGoal = 250;
-  const fatGoal = 65;
 
   const mealLogs = nutritionLogs.filter(log => log.meal_type === selectedMeal);
   const caloriesRemaining = calorieGoal - todaysTotals.calories;
@@ -695,14 +701,10 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   summaryCard: {
-    backgroundColor: colors.white,
+    backgroundColor: 'transparent',
     borderRadius: 24,
     padding: 20,
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
+    marginBottom: 20,
   },
   summaryTop: {
     flexDirection: 'row',
@@ -763,19 +765,21 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   macroValue: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '700',
-    color: colors.dark,
+    color: colors.white,
   },
   macroLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '500',
-    color: colors.dark,
+    color: colors.white,
+    opacity: 0.8,
     marginTop: 2,
   },
   macroGoal: {
-    fontSize: 10,
-    color: colors.gray,
+    fontSize: 9,
+    color: colors.white,
+    opacity: 0.6,
     marginTop: 2,
   },
   // Photo button
@@ -803,20 +807,16 @@ const styles = StyleSheet.create({
   },
   // Photos card
   photosCard: {
-    backgroundColor: colors.white,
+    backgroundColor: 'transparent',
     borderRadius: 20,
     padding: 16,
     marginTop: 16,
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    marginBottom: 16,
   },
   photosTitle: {
     fontSize: 15,
     fontWeight: '600',
-    color: colors.dark,
+    color: colors.white,
     marginBottom: 12,
   },
   photoThumbnail: {

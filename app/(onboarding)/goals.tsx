@@ -11,10 +11,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Target, TrendingDown, TrendingUp, Minus, Zap } from 'lucide-react-native';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 export default function GoalsScreen() {
-  const [activityLevel, setActivityLevel] = useState('');
-  const [goalType, setGoalType] = useState('');
+  const { data, updateData } = useOnboarding();
+  const [activityLevel, setActivityLevel] = useState(data.activityLevel);
+  const [goalType, setGoalType] = useState(data.goalType);
 
   const activityLevels = [
     { value: 'sedentary', label: 'Sedentary', description: 'Little to no exercise' },
@@ -61,6 +63,8 @@ export default function GoalsScreen() {
       return;
     }
 
+    // Save data to context
+    updateData({ activityLevel, goalType });
     router.push('/(onboarding)/complete');
   };
 

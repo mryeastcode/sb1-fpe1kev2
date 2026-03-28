@@ -100,13 +100,21 @@ export default function SignupScreen() {
           console.error('Profile creation error:', profileError);
         }
 
+        // Auto-login and redirect to onboarding
         Alert.alert(
           'Success!',
-          'Welcome to FitTrack! Your account has been created successfully. Please sign in to complete your profile setup.',
+          'Welcome to FitTrack! Setting up your profile...',
           [
             {
               text: 'OK',
-              onPress: () => router.replace('/(auth)/login'),
+              onPress: async () => {
+                // Sign in the user automatically
+                await supabase.auth.signInWithPassword({
+                  email: email.trim(),
+                  password,
+                });
+                router.replace('/(onboarding)/welcome');
+              },
             },
           ]
         );
