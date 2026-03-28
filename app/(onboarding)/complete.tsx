@@ -12,10 +12,12 @@ import { router } from 'expo-router';
 import { CircleCheck as CheckCircle, Sparkles } from 'lucide-react-native';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/hooks/useAuth';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 export default function CompleteScreen() {
   const [loading, setLoading] = useState(false);
   const { user } = useAuth();
+  const { data: onboardingData, reset } = useOnboarding();
 
   const handleComplete = async () => {
     if (!user) {
@@ -23,18 +25,82 @@ export default function CompleteScreen() {
       return;
     }
 
+    // Validate onboarding data
+    if (!onboardingData.dateOfBirth || !onboardingData.gender || 
+        !onboardingData.height || !onboardingData.weight ||
+        !onboardingData.activityLevel || !onboardingData.goalType) {
+      Alert.alert('Error', 'Missing onboarding data. Please go back and complete all fields.');
+      return;
+    }
+
     setLoading(true);
     try {
-      // Update user profile with onboarding completion
+      // Calculate age from date of birth
+      const birthDate = new Date(onboardingData.dateOfBirth);
+      const today = new Date();
+      const age = today.getFullYear() - birthDate.getFullYear();
+      
+      // Parse height and weight to numbers
+      const heightCm = parseFloat(onboardingData.height);
+      const weightKg = parseFloat(onboardingData.weight);
+
+      // Calculate BMR using Mifflin-St Jeor Equation
+      let bmr: number;
+      if (onboardingData.gender === 'male') {
+        bmr = 10 * weightKg + 6.25 * heightCm - 5 * age + 5;
+      } else {
+        bmr = 10 * weightKg + 6.25 * heightCm - 5 * age - 161;
+      }
+
+      // Activity level multipliers
+      const activityMultipliers: Record<string, number> = {
+        sedentary: 1.2,
+        light: 1.375,
+        moderate: 1.55,
+        active: 1.725,
+        very_active: 1.9,
+      };
+
+      const tdee = Math.round(bmr * (activityMultipliers[onboardingData.activityLevel] || 1.55));
+
+      // Calculate macros based on goal
+      let calorieGoal = tdee;
+      let proteinGoal: number, carbGoal: number, fatGoal: number;
+
+      switch (onboardingData.goalType) {
+        case 'weight_loss':
+          calorieGoal = tdee - 500; // 500 calorie deficit
+          proteinGoal = Math.round(weightKg * 2.2); // 2.2g per kg
+          fatGoal = Math.round((calorieGoal * 0.25) / 9);
+          carbGoal = Math.round((calorieGoal - (proteinGoal * 4) - (fatGoal * 9)) / 4);
+          break;
+        case 'weight_gain':
+        case 'muscle_gain':
+          calorieGoal = tdee + 300; // 300 calorie surplus
+          proteinGoal = Math.round(weightKg * 2.0);
+          fatGoal = Math.round((calorieGoal * 0.25) / 9);
+          carbGoal = Math.round((calorieGoal - (proteinGoal * 4) - (fatGoal * 9)) / 4);
+          break;
+        default: // maintain
+          calorieGoal = tdee;
+          proteinGoal = Math.round(weightKg * 1.6);
+          fatGoal = Math.round((calorieGoal * 0.25) / 9);
+          carbGoal = Math.round((calorieGoal - (proteinGoal * 4) - (fatGoal * 9)) / 4);
+      }
+
+      // Update user profile with onboarding data
       const { error } = await supabase
         .from('user_profiles')
         .update({
-          // You would normally get these from previous screens or context
-          date_of_birth: '1990-01-01', // Replace with actual data
-          gender: 'male', // Replace with actual data
-          height_cm: 170, // Replace with actual data
-          activity_level: 'moderate', // Replace with actual data
-          goal_type: 'maintain', // Replace with actual data
+          date_of_birth: onboardingData.dateOfBirth,
+          gender: onboardingData.gender,
+          height_cm: heightCm,
+          activity_level: onboardingData.activityLevel,
+          goal_type: onboardingData.goalType,
+          daily_calorie_goal: calorieGoal,
+          daily_protein_goal: proteinGoal,
+          daily_carb_goal: carbGoal,
+          daily_fat_goal: fatGoal,
           updated_at: new Date().toISOString(),
         })
         .eq('id', user.id);
@@ -44,6 +110,17 @@ export default function CompleteScreen() {
         Alert.alert('Error', 'Failed to save your profile. Please try again.');
         return;
       }
+
+      // Log initial weight
+      await supabase.from('weight_logs').insert({
+        user_id: user.id,
+        weight_kg: weightKg,
+        notes: 'Initial weight from onboarding',
+        logged_at: new Date().toISOString(),
+      });
+
+      // Reset onboarding context
+      reset();
 
       // Navigate to main app
       router.replace('/(tabs)');

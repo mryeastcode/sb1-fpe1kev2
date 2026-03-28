@@ -46,9 +46,12 @@ const colors = {
 };
 
 export default function ProgressScreen() {
-  const { weightLogs, logWeight } = useProfile();
+  const { weightLogs, logWeight, profile } = useProfile();
   const { todaysTotals, nutritionLogs } = useNutrition();
   const { weeklyStats: exerciseStats } = useExercise();
+  
+  // Get goals from profile or use defaults
+  const calorieGoal = profile?.daily_calorie_goal || 2000;
   
   // Calculate weekly nutrition stats from today's totals
   const nutritionStats = {
@@ -83,7 +86,6 @@ export default function ProgressScreen() {
     { day: 'Sun', calories: 1900 },
   ];
 
-  const calorieGoal = 2000;
   const maxCalories = Math.max(...weeklyData.map(d => d.calories), calorieGoal);
 
   const handleLogWeight = async () => {

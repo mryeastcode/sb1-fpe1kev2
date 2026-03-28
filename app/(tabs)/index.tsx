@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { 
   Droplets, 
   Flame, 
@@ -25,10 +26,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNutrition } from '@/hooks/useNutrition';
 import { useWater } from '@/hooks/useWater';
 import { useExercise } from '@/hooks/useExercise';
+import { useProfile } from '@/hooks/useProfile';
+import { GlassCard, Icon3DWrapper } from '@/components/ui/GlassCard';
 
 const { width } = Dimensions.get('window');
 
-// Modern color palette
+// Modern color palette with glassmorphism support
 const colors = {
   primary: '#10B981',
   secondary: '#3B82F6',
@@ -40,7 +43,9 @@ const colors = {
   gray: '#6B7280',
   light: '#F3F4F6',
   white: '#FFFFFF',
-  background: '#F8FAFC',
+  background: '#0F172A', // Dark background for glassmorphism
+  glass: 'rgba(255, 255, 255, 0.1)',
+  glassBorder: 'rgba(255, 255, 255, 0.2)',
 };
 
 export default function HomeScreen() {
@@ -48,11 +53,13 @@ export default function HomeScreen() {
   const { todaysTotals: nutritionTotals } = useNutrition();
   const { todaysIntake: waterIntake, glasses, progress: waterProgress, quickAdd } = useWater();
   const { weeklyStats: exerciseStats } = useExercise();
+  const { profile } = useProfile();
 
-  const calorieGoal = 2000;
-  const proteinGoal = 120;
-  const carbsGoal = 250;
-  const fatGoal = 65;
+  // Get goals from profile or use defaults
+  const calorieGoal = profile?.daily_calorie_goal || 2000;
+  const proteinGoal = profile?.daily_protein_goal || 120;
+  const carbsGoal = profile?.daily_carb_goal || 250;
+  const fatGoal = profile?.daily_fat_goal || 65;
   
   const calorieProgress = Math.min((nutritionTotals.calories / calorieGoal) * 100, 100);
   const proteinProgress = Math.min((nutritionTotals.protein / proteinGoal) * 100, 100);
@@ -74,7 +81,7 @@ export default function HomeScreen() {
     <View style={styles.container}>
       {/* Modern Header with Gradient */}
       <LinearGradient
-        colors={[colors.primary, '#059669']}
+        colors={['rgba(16, 185, 129, 0.9)', 'rgba(5, 150, 105, 0.8)']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={styles.header}>
@@ -99,7 +106,7 @@ export default function HomeScreen() {
         contentContainerStyle={styles.scrollContent}>
         
         {/* Main Stats Card - Glassmorphism */}
-        <View style={styles.statsCard}>
+        <GlassCard intensity={70} tint="dark" style={styles.statsCard}>
           <View style={styles.statsHeader}>
             <Text style={styles.cardTitle}>Today's Progress</Text>
             <View style={styles.caloriesRemaining}>
@@ -128,23 +135,29 @@ export default function HomeScreen() {
 
           {/* Macro Pills */}
           <View style={styles.macrosRow}>
-            <View style={[styles.macroPill, { backgroundColor: colors.primary + '15' }]}>
-              <View style={[styles.macroDot, { backgroundColor: colors.primary }]} />
+            <View style={[styles.macroPill, { backgroundColor: colors.primary + '30' }]}>
+              <Icon3DWrapper color={colors.primary}>
+                <Target size={20} color={colors.white} />
+              </Icon3DWrapper>
               <Text style={styles.macroValue}>{Math.round(nutritionTotals.protein)}g</Text>
               <Text style={styles.macroLabel}>Protein</Text>
             </View>
-            <View style={[styles.macroPill, { backgroundColor: colors.accent + '15' }]}>
-              <View style={[styles.macroDot, { backgroundColor: colors.accent }]} />
+            <View style={[styles.macroPill, { backgroundColor: colors.accent + '30' }]}>
+              <Icon3DWrapper color={colors.accent}>
+                <Flame size={20} color={colors.white} />
+              </Icon3DWrapper>
               <Text style={styles.macroValue}>{Math.round(nutritionTotals.carbs)}g</Text>
               <Text style={styles.macroLabel}>Carbs</Text>
             </View>
-            <View style={[styles.macroPill, { backgroundColor: colors.purple + '15' }]}>
-              <View style={[styles.macroDot, { backgroundColor: colors.purple }]} />
+            <View style={[styles.macroPill, { backgroundColor: colors.purple + '30' }]}>
+              <Icon3DWrapper color={colors.purple}>
+                <Activity size={20} color={colors.white} />
+              </Icon3DWrapper>
               <Text style={styles.macroValue}>{Math.round(nutritionTotals.fat)}g</Text>
               <Text style={styles.macroLabel}>Fat</Text>
             </View>
           </View>
-        </View>
+        </GlassCard>
 
         {/* Quick Actions - Modern Cards */}
         <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -152,43 +165,45 @@ export default function HomeScreen() {
           <TouchableOpacity 
             style={styles.quickActionCard}
             onPress={() => quickAdd(1)}>
-            <View style={[styles.quickIcon, { backgroundColor: colors.cyan + '20' }]}>
-              <Droplets color={colors.cyan} size={24} />
-            </View>
+            <Icon3DWrapper color={colors.cyan}>
+              <Droplets size={24} color={colors.white} />
+            </Icon3DWrapper>
             <Text style={styles.quickActionLabel}>Water</Text>
             <Text style={styles.quickActionSubtext}>+250ml</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.quickActionCard}>
-            <View style={[styles.quickIcon, { backgroundColor: colors.accent + '20' }]}>
-              <Flame color={colors.accent} size={24} />
-            </View>
+            <Icon3DWrapper color={colors.accent}>
+              <Flame size={24} color={colors.white} />
+            </Icon3DWrapper>
             <Text style={styles.quickActionLabel}>Food</Text>
             <Text style={styles.quickActionSubtext}>Log meal</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.quickActionCard}>
-            <View style={[styles.quickIcon, { backgroundColor: colors.secondary + '20' }]}>
-              <Target color={colors.secondary} size={24} />
-            </View>
+            <Icon3DWrapper color={colors.secondary}>
+              <Target size={24} color={colors.white} />
+            </Icon3DWrapper>
             <Text style={styles.quickActionLabel}>Workout</Text>
             <Text style={styles.quickActionSubtext}>Start</Text>
           </TouchableOpacity>
           
           <TouchableOpacity style={styles.quickActionCard}>
-            <View style={[styles.quickIcon, { backgroundColor: colors.purple + '20' }]}>
-              <Moon color={colors.purple} size={24} />
-            </View>
+            <Icon3DWrapper color={colors.purple}>
+              <Moon size={24} color={colors.white} />
+            </Icon3DWrapper>
             <Text style={styles.quickActionLabel}>Sleep</Text>
             <Text style={styles.quickActionSubtext}>Log</Text>
           </TouchableOpacity>
         </View>
 
         {/* Water Progress Card */}
-        <View style={styles.waterCard}>
+        <GlassCard intensity={60} tint="dark" style={styles.waterCard}>
           <View style={styles.waterHeader}>
             <View style={styles.waterTitleRow}>
-              <Droplets color={colors.cyan} size={20} />
+              <Icon3DWrapper color={colors.cyan}>
+                <Droplets size={20} color={colors.white} />
+              </Icon3DWrapper>
               <Text style={styles.waterTitle}>Hydration</Text>
             </View>
             <Text style={styles.waterSubtitle}>{waterIntake}ml / 2000ml</Text>
@@ -219,10 +234,10 @@ export default function HomeScreen() {
               </TouchableOpacity>
             ))}
           </View>
-        </View>
+        </GlassCard>
 
         {/* Weekly Activity Card */}
-        <View style={styles.activityCard}>
+        <GlassCard intensity={60} tint="dark" style={styles.activityCard}>
           <View style={styles.activityHeader}>
             <Text style={styles.cardTitle}>Weekly Activity</Text>
             <TouchableOpacity>
@@ -232,27 +247,33 @@ export default function HomeScreen() {
           
           <View style={styles.activityStats}>
             <View style={styles.activityStat}>
-              <Clock color={colors.secondary} size={20} />
+              <Icon3DWrapper color={colors.secondary}>
+                <Clock size={20} color={colors.white} />
+              </Icon3DWrapper>
               <Text style={styles.activityValue}>{exerciseStats.totalMinutes}</Text>
               <Text style={styles.activityLabel}>min</Text>
             </View>
             <View style={styles.activityDivider} />
             <View style={styles.activityStat}>
-              <Flame color={colors.danger} size={20} />
+              <Icon3DWrapper color={colors.danger}>
+                <Flame size={20} color={colors.white} />
+              </Icon3DWrapper>
               <Text style={styles.activityValue}>{exerciseStats.totalCalories}</Text>
               <Text style={styles.activityLabel}>cal</Text>
             </View>
             <View style={styles.activityDivider} />
             <View style={styles.activityStat}>
-              <Target color={colors.primary} size={20} />
+              <Icon3DWrapper color={colors.primary}>
+                <Target size={20} color={colors.white} />
+              </Icon3DWrapper>
               <Text style={styles.activityValue}>{exerciseStats.workoutCount}</Text>
               <Text style={styles.activityLabel}>workouts</Text>
             </View>
           </View>
-        </View>
+        </GlassCard>
 
         {/* Progress Overview */}
-        <View style={styles.progressOverviewCard}>
+        <GlassCard intensity={60} tint="dark" style={styles.progressOverviewCard}>
           <Text style={styles.cardTitle}>Macro Breakdown</Text>
           <View style={styles.progressBars}>
             <View style={styles.progressBarItem}>
@@ -294,7 +315,7 @@ export default function HomeScreen() {
               </View>
             </View>
           </View>
-        </View>
+        </GlassCard>
       </ScrollView>
     </View>
   );
@@ -350,14 +371,10 @@ const styles = StyleSheet.create({
     paddingTop: 24,
   },
   statsCard: {
-    backgroundColor: colors.white,
+    backgroundColor: 'transparent',
     borderRadius: 24,
     padding: 20,
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
+    marginBottom: 20,
   },
   statsHeader: {
     flexDirection: 'row',
@@ -427,28 +444,24 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 12,
-  },
-  macroDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginBottom: 4,
+    borderRadius: 16,
   },
   macroValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.dark,
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.white,
+    marginTop: 4,
   },
   macroLabel: {
-    fontSize: 11,
-    color: colors.gray,
+    fontSize: 10,
+    color: colors.white,
+    opacity: 0.8,
     marginTop: 2,
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: '600',
-    color: colors.dark,
+    fontWeight: '700',
+    color: colors.white,
     marginTop: 24,
     marginBottom: 12,
   },
@@ -458,44 +471,31 @@ const styles = StyleSheet.create({
   },
   quickActionCard: {
     width: (width - 56) / 4,
-    backgroundColor: colors.white,
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderRadius: 20,
     padding: 12,
     alignItems: 'center',
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  quickIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.15)',
   },
   quickActionLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    color: colors.dark,
+    color: colors.white,
+    marginTop: 8,
   },
   quickActionSubtext: {
-    fontSize: 10,
-    color: colors.gray,
+    fontSize: 9,
+    color: colors.white,
+    opacity: 0.7,
     marginTop: 2,
   },
   waterCard: {
-    backgroundColor: colors.white,
+    backgroundColor: 'transparent',
     borderRadius: 20,
     padding: 20,
     marginTop: 16,
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    marginBottom: 16,
   },
   waterHeader: {
     marginBottom: 16,
@@ -508,17 +508,18 @@ const styles = StyleSheet.create({
   waterTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: colors.dark,
+    color: colors.white,
     marginLeft: 8,
   },
   waterSubtitle: {
     fontSize: 13,
-    color: colors.gray,
+    color: colors.white,
+    opacity: 0.7,
     marginLeft: 28,
   },
   waterProgressBar: {
     height: 8,
-    backgroundColor: colors.light,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 4,
     overflow: 'hidden',
     marginBottom: 16,
@@ -535,23 +536,22 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 8,
-    backgroundColor: colors.light,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   glassIconFilled: {
     backgroundColor: colors.cyan,
+    borderColor: colors.cyan,
   },
   activityCard: {
-    backgroundColor: colors.white,
+    backgroundColor: 'transparent',
     borderRadius: 20,
     padding: 20,
     marginTop: 16,
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
+    marginBottom: 16,
   },
   activityHeader: {
     flexDirection: 'row',
@@ -575,29 +575,25 @@ const styles = StyleSheet.create({
   activityDivider: {
     width: 1,
     height: 40,
-    backgroundColor: colors.light,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
   },
   activityValue: {
     fontSize: 20,
     fontWeight: '700',
-    color: colors.dark,
+    color: colors.white,
     marginTop: 8,
   },
   activityLabel: {
     fontSize: 12,
-    color: colors.gray,
+    color: colors.white,
+    opacity: 0.7,
   },
   progressOverviewCard: {
-    backgroundColor: colors.white,
+    backgroundColor: 'transparent',
     borderRadius: 20,
     padding: 20,
     marginTop: 16,
     marginBottom: 20,
-    shadowColor: colors.dark,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 2,
   },
   progressBars: {
     marginTop: 8,
@@ -613,15 +609,16 @@ const styles = StyleSheet.create({
   progressBarLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: colors.dark,
+    color: colors.white,
   },
   progressBarValue: {
     fontSize: 13,
-    color: colors.gray,
+    color: colors.white,
+    opacity: 0.8,
   },
   progressBarTrack: {
     height: 8,
-    backgroundColor: colors.light,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
     borderRadius: 4,
     overflow: 'hidden',
   },

@@ -12,12 +12,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { Calendar, User, Ruler, Weight } from 'lucide-react-native';
+import { useOnboarding } from '@/contexts/OnboardingContext';
 
 export default function PersonalInfoScreen() {
-  const [dateOfBirth, setDateOfBirth] = useState('');
-  const [gender, setGender] = useState('');
-  const [height, setHeight] = useState('');
-  const [weight, setWeight] = useState('');
+  const { data, updateData } = useOnboarding();
+  const [dateOfBirth, setDateOfBirth] = useState(data.dateOfBirth);
+  const [gender, setGender] = useState(data.gender);
+  const [height, setHeight] = useState(data.height);
+  const [weight, setWeight] = useState(data.weight);
 
   const genderOptions = [
     { value: 'male', label: 'Male' },
@@ -31,7 +33,8 @@ export default function PersonalInfoScreen() {
       return;
     }
 
-    // Store data temporarily (you can use AsyncStorage or context)
+    // Save data to context
+    updateData({ dateOfBirth, gender, height, weight });
     router.push('/(onboarding)/goals');
   };
 
